@@ -1,4 +1,4 @@
-import type { Command, ScadaDocument, ScadaDomainEvent } from "@web-scada/core";
+import type { Command, DomainEvent, ScadaDocument } from "@web-scada/core";
 import type { Point, Viewport } from "@web-scada/geometry";
 
 export interface SelectionState {
@@ -18,7 +18,7 @@ export interface DesignerEngine {
   setSelection(selection: SelectionState): void;
   setViewport(viewport: Viewport): void;
   toCanvasPoint(screenPoint: Point): Point;
-  subscribe(listener: (event: ScadaDomainEvent) => void): () => void;
+  subscribe(listener: (event: DomainEvent) => void): () => void;
 }
 
 export interface ClipboardAdapter {

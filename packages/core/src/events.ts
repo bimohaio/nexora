@@ -1,22 +1,36 @@
-import type { ScadaConnection, ScadaDocument, ScadaNode, Viewport } from "./model.js";
-import type { ValidationResult } from "./validation.js";
+import type { JsonValue } from "./model.js";
 
-export interface DomainEvent<Name extends string, Payload> {
-  readonly name: Name;
+export type DomainEventType =
+  | "document-created"
+  | "document-updated"
+  | "layer-added"
+  | "layer-updated"
+  | "layer-removed"
+  | "layers-reordered"
+  | "node-added"
+  | "node-updated"
+  | "node-removed"
+  | "node-moved"
+  | "node-resized"
+  | "node-rotated"
+  | "node-reparented"
+  | "connection-added"
+  | "connection-updated"
+  | "connection-removed"
+  | "variable-added"
+  | "variable-updated"
+  | "variable-removed"
+  | "binding-added"
+  | "binding-updated"
+  | "binding-removed"
+  | "validation-failed"
+  | "document-migrated";
+
+export interface DomainEvent<Type extends DomainEventType = DomainEventType> {
+  readonly id: string;
+  readonly type: Type;
   readonly timestamp: string;
-  readonly payload: Payload;
+  readonly documentId: string;
+  readonly payload: JsonValue;
+  readonly metadata: Readonly<Record<string, JsonValue>>;
 }
-
-export type ScadaDomainEvent =
-  | DomainEvent<"document-changed", { readonly document: ScadaDocument }>
-  | DomainEvent<"node-added", { readonly node: ScadaNode }>
-  | DomainEvent<"node-updated", { readonly node: ScadaNode }>
-  | DomainEvent<"node-removed", { readonly nodeId: string }>
-  | DomainEvent<"node-moved", { readonly nodeId: string; readonly x: number; readonly y: number }>
-  | DomainEvent<"connection-created", { readonly connection: ScadaConnection }>
-  | DomainEvent<"connection-updated", { readonly connection: ScadaConnection }>
-  | DomainEvent<"connection-removed", { readonly connectionId: string }>
-  | DomainEvent<"selection-changed", { readonly selectedIds: readonly string[] }>
-  | DomainEvent<"viewport-changed", { readonly viewport: Viewport }>
-  | DomainEvent<"tag-value-changed", { readonly tagId: string; readonly value: unknown }>
-  | DomainEvent<"validation-failed", { readonly result: ValidationResult }>;

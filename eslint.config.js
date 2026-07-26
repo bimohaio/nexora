@@ -60,6 +60,7 @@ export default tseslint.config(
       "@typescript-eslint/explicit-function-return-type": ["error", { allowExpressions: true }],
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
       "import-x/no-cycle": "error",
       "import-x/no-internal-modules": ["error", { allow: ["**/src/**", "vitest/**"] }]
     }

@@ -1,5 +1,5 @@
 # SCADA document
 
-`ScadaDocument` is the versioned JSON-safe aggregate rooted at schema `1.0.0`. It contains identity and metadata, logical canvas settings, ordered layers, nodes, port-referenced connections, variables, bindings, and runtime configuration. Runtime measurements are excluded.
+`ScadaDocument` is the versioned JSON-safe aggregate rooted at schema `1.0.0`. It contains stable identity and metadata, logical canvas settings, ordered layers, nodes, port-referenced connections, variables, bindings, runtime configuration, and optional namespaced extensions. Runtime measurements are excluded.
 
-Unknown input follows: structural validation → migration → semantic validation → default normalization. Phase 0 defines this contract and validates the top-level/version shape; comprehensive parsing follows later.
+Unknown input follows: structural validation → version inspection/migration → safe normalization → semantic validation. Documents contain no methods and all mutations return new values.

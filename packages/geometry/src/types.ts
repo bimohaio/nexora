@@ -19,7 +19,7 @@ export interface Bounds {
   readonly bottom: number;
 }
 
-export type Rotation = 0 | 90 | 180 | 270;
+export type Rotation = number;
 
 export interface Transform extends Rectangle {
   readonly rotation: Rotation;
@@ -31,6 +31,11 @@ export interface Viewport {
   readonly x: number;
   readonly y: number;
   readonly zoom: number;
+}
+
+export interface ViewportConstraints {
+  readonly minZoom: number;
+  readonly maxZoom: number;
 }
 
 export type Waypoint = Point;
@@ -61,6 +66,26 @@ export interface ConnectionRouteRequest {
   readonly target: Point;
   readonly routing: ConnectionRouting;
   readonly waypoints: readonly Waypoint[];
+}
+
+export interface ResolvedConnectionEndpoint {
+  readonly point: Point;
+  readonly direction: "input" | "output" | "bidirectional" | "passive";
+  readonly nodeBounds: Rectangle;
+  readonly portId: string;
+  readonly nodeId: string;
+}
+
+export interface ConnectionRouteInput {
+  readonly source: ResolvedConnectionEndpoint;
+  readonly target: ResolvedConnectionEndpoint;
+  readonly routing: ConnectionRouting;
+  readonly waypoints: readonly Waypoint[];
+}
+
+export interface ConnectionRoute {
+  readonly points: readonly Point[];
+  readonly routing: ConnectionRouting;
 }
 
 export interface ConnectionRouter {

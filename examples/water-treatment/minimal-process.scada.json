@@ -1,0 +1,134 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "doc_water_minimal",
+  "metadata": {
+    "name": "Minimal Water Treatment Process",
+    "description": "Phase 1 domain example; no visual rendering is included.",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "createdBy": "web-scada",
+    "tags": ["water", "example"],
+    "projectVersion": "1.0.0"
+  },
+  "canvas": {
+    "width": 1280,
+    "height": 720,
+    "background": "#f8fafc",
+    "gridSize": 20,
+    "gridVisible": true,
+    "snapToGrid": true,
+    "coordinateUnit": "logical",
+    "defaultViewport": { "x": 0, "y": 0, "zoom": 1 }
+  },
+  "layers": [
+    { "id": "layer_process", "name": "Process", "order": 0, "visible": true, "locked": false },
+    { "id": "layer_labels", "name": "Labels", "order": 1, "visible": true, "locked": false }
+  ],
+  "nodes": [
+    {
+      "id": "node_tank",
+      "name": "Raw Water Tank",
+      "symbolType": "basic.rectangle",
+      "transform": {
+        "x": 120,
+        "y": 220,
+        "width": 180,
+        "height": 260,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": { "fill": "#38bdf8", "role": "tank" },
+      "bindings": ["bind_tank_fill"],
+      "layerId": "layer_process",
+      "visible": true,
+      "locked": false,
+      "extensions": { "vendor.example.assetClass": "tank" }
+    },
+    {
+      "id": "node_pump",
+      "name": "Feed Pump",
+      "symbolType": "basic.rectangle",
+      "transform": {
+        "x": 480,
+        "y": 300,
+        "width": 140,
+        "height": 100,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": { "fill": "#64748b", "role": "pump" },
+      "bindings": [],
+      "layerId": "layer_process",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "node_label",
+      "name": "Process Title",
+      "symbolType": "basic.text",
+      "transform": {
+        "x": 80,
+        "y": 60,
+        "width": 360,
+        "height": 40,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": { "text": "Raw Water Feed" },
+      "bindings": [],
+      "layerId": "layer_labels",
+      "visible": true,
+      "locked": true
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn_tank_pump",
+      "name": "Raw water feed",
+      "source": { "nodeId": "node_tank", "portId": "outlet" },
+      "target": { "nodeId": "node_pump", "portId": "inlet" },
+      "routing": "direct",
+      "waypoints": [],
+      "medium": "water",
+      "direction": "forward",
+      "style": { "stroke": "#0284c7", "strokeWidth": 4, "lineCap": "round", "endMarker": "arrow" },
+      "layerId": "layer_process",
+      "visible": true,
+      "locked": false,
+      "extensions": { "vendor.example.nominalDiameter": 80 }
+    }
+  ],
+  "variables": [
+    {
+      "id": "var_tank_capacity",
+      "name": "Tank Capacity",
+      "dataType": "number",
+      "defaultValue": 100,
+      "value": 100,
+      "unit": "%",
+      "description": "Static design configuration",
+      "readonly": false
+    }
+  ],
+  "bindings": [
+    {
+      "id": "bind_tank_fill",
+      "source": { "type": "tag", "tagId": "tag_raw_tank_level" },
+      "target": { "type": "node-property", "nodeId": "node_tank", "property": "fillLevel" },
+      "mode": "one-way",
+      "fallback": 0,
+      "enabled": true
+    }
+  ],
+  "runtimeSettings": {
+    "refreshInterval": 250,
+    "staleAfterMs": 5000,
+    "defaultQuality": "unknown",
+    "timezone": "UTC",
+    "locale": "en"
+  },
+  "extensions": { "vendor.example.site": "training-plant" }
+}

@@ -1,3 +1,3 @@
 # Binding
 
-A property binding maps one node property to a runtime tag ID. Optional formatter and transformation metadata are declarative JSON-safe records. No expression language or evaluator is implemented in Phase 0. Runtime values remain outside the document.
+A binding has a stable ID, tag/variable/constant/expression source, typed target, one-way mode, formatter/transformation metadata, fallback, enabled flag, and extensions. Expressions are inert text: Phase 1 never evaluates them. Runtime values remain outside the document.

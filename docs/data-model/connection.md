@@ -1,3 +1,3 @@
 # Connection
 
-Connections store source and target `{ nodeId, portId }` references, never absolute endpoints. Routing is direct, orthogonal, or manual; manual geometry uses logical-coordinate waypoints. Medium, direction, style, layer, visibility, and locking are design state.
+Connections store source and target `{ nodeId, portId }` references, never absolute endpoints. Routing is direct, orthogonal, or manual; waypoints use logical coordinates. Neutral styles include stroke, width, opacity, dash, cap, join, and semantic markers without SVG fields.

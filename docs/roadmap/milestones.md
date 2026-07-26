@@ -1,7 +1,7 @@
 # Milestones
 
-1. Phase 0: strict workspace, domain contracts, architecture, tests, and build-only demos.
-2. Phase 1: document construction/parsing and minimal readonly SVG rendering.
-3. Phase 2: selection and viewport interaction with command history.
-4. Phase 3: connection editing, routing, richer symbols, and runtime binding.
-5. Later: production protocols, alarms, persistence, security, performance hardening, and domain applications.
+1. Phase 0: strict workspace, package boundaries, foundational contracts, and build-only demos — complete.
+2. Phase 1: complete domain core, validation, parsing, migrations, immutable mutations, geometry, and symbol metadata — complete.
+3. Phase 2: readonly SVG document rendering, viewport navigation, incremental updates, and viewer demo — complete.
+4. Phase 3: industrial symbol-library expansion or Phase 4 Designer MVP, based on roadmap review.
+5. Later: editing history, routing, runtime binding, protocols, alarms, persistence, security, performance hardening, and domain applications.

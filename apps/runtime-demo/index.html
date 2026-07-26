@@ -3,10 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web SCADA — Runtime Foundation</title>
+    <title>Web SCADA — SVG Runtime Viewer</title>
   </head>
   <body>
-    <main id="app"></main>
+    <main class="shell">
+      <header>
+        <div>
+          <span class="eyebrow">PHASE 2 · SVG RENDERER</span>
+          <h1>Water Treatment Viewer</h1>
+        </div>
+        <div class="controls" aria-label="Viewer controls">
+          <button id="grid-toggle" type="button">Grid</button>
+          <button id="ports-toggle" type="button">Ports</button>
+          <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+          <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+          <button id="reset" type="button">Reset</button>
+          <button id="fit" type="button">Fit</button>
+          <button id="state-toggle" type="button">Pump state</button>
+        </div>
+      </header>
+      <section id="viewer" aria-label="SCADA process viewer"></section>
+      <footer>
+        <output id="viewport-status">x 0 · y 0 · 100%</output>
+        <span>Drag the background to pan</span>
+      </footer>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

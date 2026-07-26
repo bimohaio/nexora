@@ -1,3 +1,3 @@
 # Layer
 
-A layer has a stable ID, localized-capable name value, numeric order, visibility, and lock state. Nodes and connections reference layers by ID. Missing layer references are semantic validation errors.
+A layer has a stable ID, non-empty name, sequential normalized order, visibility, and lock state. Duplicate input orders are accepted and resolved stably by input order. Every normalized document has at least one layer; the factory creates `Default`.

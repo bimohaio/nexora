@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@web-scada/core": "workspace:*"
+    "@web-scada/core": "workspace:*",
+    "@web-scada/geometry": "workspace:*"
   }
 }

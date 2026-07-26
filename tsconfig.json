@@ -2,7 +2,14 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2022", "DOM"],
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@web-scada/core": ["packages/core/src/index.ts"],
+      "@web-scada/geometry": ["packages/geometry/src/index.ts"],
+      "@web-scada/renderer-svg": ["packages/renderer-svg/src/index.ts"],
+      "@web-scada/symbols": ["packages/symbols/src/index.ts"]
+    }
   },
-  "include": ["*.ts", "eslint.config.js", "prettier.config.js"]
+  "include": ["*.ts", "tests/**/*.ts", "eslint.config.js", "prettier.config.js"]
 }

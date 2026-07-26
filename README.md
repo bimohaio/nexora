@@ -1,26 +1,97 @@
 # Web SCADA
 
-A framework-independent TypeScript foundation for industrial graphics, HMI, P&ID, BMS, electrical, water-treatment, dashboard, and digital-twin applications.
+A framework-independent TypeScript domain engine for long-lived industrial graphics, HMI, P&ID, BMS, electrical, water-treatment, dashboard, and digital-twin applications.
 
-## Phase 0 scope
+## Phase 2 status
 
-Phase 0 establishes versioned document contracts, geometry utilities, validation and migration boundaries, metadata-driven symbols, renderer and engine interfaces, typed commands/events, strict tooling, and build-only demo applications. It does not implement a production designer or runtime.
+Phase 1 provides the Node-compatible SCADA Core Engine, and Phase 2 adds a production-quality native SVG viewer:
 
-## Technology
+- Versioned `ScadaDocument` v1 model and JSON-safe extensions
+- Document factory, defaults, normalization, ULID-based IDs, and injected clocks
+- Structural and semantic validation with stable codes and JSON Pointer paths
+- Symbol-aware port, compatibility, connection-limit, reference, and cycle validation
+- Parsing, deterministic serialization, semantic versions, and migration paths
+- Immutable indexes, queries, required mutations, cascades, changes, and domain events
+- Pure geometry for transforms, ports, viewports, grids, rectangles, and bounds
+- Metadata for the initial eight symbols with an in-memory registry
+- Accessible SVG hierarchy with background, world grid, viewport, ordered layers, and overlays
+- Rectangle, Text, Tank, Pump, Valve, Motor, Sensor, and Indicator Lamp visuals
+- Direct, manual, and basic deterministic orthogonal connections
+- Transform-aware ports, connection hit areas, markers, and medium classes
+- Programmatic zoom, anchor zoom, pan, resize, reset, and fit-to-view
+- Stable entity maps, incremental change sets, and animation-frame coalescing
+- Runtime visual-state adapter and typed pointer metadata
+- Responsive water-treatment runtime viewer with Playwright coverage
 
-TypeScript, ES modules, pnpm workspaces, Vite, native HTML/CSS/SVG/DOM boundaries, Web Components boundaries, ESLint, Prettier, Vitest, and Playwright.
+There is no Designer editing UI yet.
+
+## Document example
+
+```ts
+const document: ScadaDocument = {
+  schemaVersion: "1.0.0",
+  id: "doc_example",
+  metadata: {
+    name: "Plant",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    tags: []
+  },
+  canvas: {
+    width: 1920,
+    height: 1080,
+    background: "transparent",
+    gridSize: 10,
+    gridVisible: true,
+    snapToGrid: true,
+    coordinateUnit: "logical",
+    defaultViewport: { x: 0, y: 0, zoom: 1 }
+  },
+  layers: [{ id: "layer_default", name: "Default", order: 0, visible: true, locked: false }],
+  nodes: [],
+  connections: [],
+  variables: [],
+  bindings: [],
+  runtimeSettings: { refreshInterval: 250, defaultQuality: "unknown" }
+};
+```
+
+See [`examples/water-treatment/minimal-process.scada.json`](examples/water-treatment/minimal-process.scada.json) for a complete symbol-aware example.
+
+## Core usage
+
+```ts
+import {
+  addNode,
+  createScadaDocument,
+  parseDocumentJson,
+  serializeDocumentJson,
+  validateDocumentSemantics
+} from "@web-scada/core";
+import { createExampleSymbolRegistry } from "@web-scada/symbols";
+
+const document = createScadaDocument({ name: "Water Plant" });
+const registry = createExampleSymbolRegistry();
+const parsed = parseDocumentJson(importedJson, { symbolRegistry: registry });
+const validation = validateDocumentSemantics(document, { symbolRegistry: registry });
+const mutation = addNode(document, node, { symbolRegistry: registry });
+const output = serializeDocumentJson(mutation.success ? mutation.document : document, true);
+```
+
+External values remain `unknown` until parsed. Mutation failures return the original document and structured issues.
 
 ## Structure
 
 ```text
-apps/       designer-demo and runtime-demo
-packages/   core, geometry, renderer-svg, symbols, designer-engine,
-            runtime-engine, web-components, and shared
-docs/       architecture, data model, ADRs, conventions, and roadmap
-examples/   future domain examples
-tests/      future integration and performance suites
-tooling/    shared TypeScript, ESLint, and build documentation
+apps/       small Phase 1 integration demos
+packages/   core, geometry, symbols, renderer/engine/component boundaries
+docs/       architecture, data model, ADRs, conventions, and audits
+examples/   valid SCADA JSON fixtures
+tests/      integration and future performance suites
+tooling/    shared TypeScript, ESLint, and build configuration
 ```
+
+Dependencies point inward: UI → engines → renderer → core/geometry/symbols. ESLint restrictions enforce prohibited directions. Core and geometry contain no browser globals.
 
 ## Development
 
@@ -28,32 +99,38 @@ tooling/    shared TypeScript, ESLint, and build documentation
 pnpm install
 pnpm dev
 pnpm dev:runtime
-pnpm build
-pnpm lint
 pnpm format:check
+pnpm lint
 pnpm typecheck
 pnpm test
+pnpm build
 ```
 
-`pnpm dev` starts the designer foundation demo. `pnpm dev:runtime` starts the runtime foundation demo.
+`pnpm dev` starts the non-visual designer-core preview. `pnpm dev:runtime` starts the Phase 2 water-treatment SVG viewer.
 
-## Packages
+## SVG renderer
 
-- `core`: environment-neutral document, port, validation, migration, command, and event contracts.
-- `geometry`: DOM-independent geometry contracts and pure utilities.
-- `symbols`: metadata and a small in-memory symbol registry.
-- `renderer-svg`: readonly renderer and change-set contracts.
-- `designer-engine`: public editing-engine boundaries.
-- `runtime-engine`: ephemeral tag values, quality, providers, and evaluation boundaries.
-- `web-components`: future UI adapter boundaries and theme tokens.
-- `shared`: intentionally empty until a genuinely shared low-level utility appears.
+```ts
+import { createSvgRenderer } from "@web-scada/renderer-svg";
+import { createExampleSymbolRegistry } from "@web-scada/symbols";
 
-Dependencies point inward: UI → engines → renderer → core/geometry/symbols. ESLint restrictions enforce prohibited package imports.
+const renderer = createSvgRenderer({
+  symbols: createExampleSymbolRegistry(),
+  options: { gridPattern: "dots", portVisibility: "always" }
+});
+
+renderer.mount(container);
+renderer.renderDocument(document);
+renderer.fitToView();
+renderer.renderChanges(nextDocument, changeSet);
+```
+
+Viewport semantics are `screen = canvas × zoom + translation`. The renderer consumes readonly state and never changes a document.
 
 ## Current limitations
 
-There is no editing interaction, full SVG renderer, routing, history manager, symbol library, real data provider, protocol integration, alarm processing, persistence service, authentication, collaboration, or production UI.
+Deferred: selection, dragging, resizing, rotation handles, connection editing, obstacle avoidance, history management, production Web Components, binding evaluation, protocols, alarms, persistence, authentication, collaboration, and backend services.
 
-## Roadmap
+## Next milestone
 
-Phase 1 should introduce a minimal readonly SVG document renderer, a document factory/parser with comprehensive structural validation, a single example symbol renderer, and browser-level renderer tests without expanding into designer interactions.
+The next milestone should expand the industrial symbol library (Phase 3) before the Designer MVP (Phase 4), so designer tools can target stable, representative metadata and visuals.
