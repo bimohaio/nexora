@@ -1,0 +1,41 @@
+:root {
+  color: #daf5ef;
+  background: #061512;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #123f35, #061512 65%);
+}
+
+section {
+  text-align: center;
+}
+
+span {
+  color: #55dbb7;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+h1 {
+  margin: 16px 0;
+  font-size: clamp(40px, 7vw, 72px);
+}
+
+p {
+  color: #91b8ad;
+}
+
+output {
+  display: inline-block;
+  margin-top: 24px;
+  padding: 10px 16px;
+  border: 1px solid #2a6558;
+  border-radius: 999px;
+}
