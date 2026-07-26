@@ -17,3 +17,9 @@
 - [x] Responsive runtime water-treatment viewer
 - [x] Unit, DOM integration, performance fixture, and Playwright coverage
 - [ ] Designer editing behavior and advanced obstacle routing (intentionally deferred)
+
+See also:
+
+- [Roadmap index](README.md)
+- [Master roadmap](../master-spec/roadmap.md)
+- [Phase specifications](../phases/README.md)

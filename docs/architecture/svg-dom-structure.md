@@ -22,3 +22,9 @@ svg[data-scada-root]
 ```
 
 No user text enters through `innerHTML`; symbol labels use `textContent`. Definition IDs contain an instance ULID, allowing multiple renderers on one page.
+
+See also:
+
+- [Architecture index](README.md)
+- [Master architecture](../master-spec/architecture.md)
+- [Data model](../data-model/README.md)

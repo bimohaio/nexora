@@ -50,9 +50,18 @@ importers:
       '@web-scada/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@web-scada/designer-engine':
+        specifier: workspace:*
+        version: link:../../packages/designer-engine
       '@web-scada/geometry':
         specifier: workspace:*
         version: link:../../packages/geometry
+      '@web-scada/renderer-svg':
+        specifier: workspace:*
+        version: link:../../packages/renderer-svg
+      '@web-scada/symbols':
+        specifier: workspace:*
+        version: link:../../packages/symbols
     devDependencies:
       vite:
         specifier: ^6.0.5
@@ -69,6 +78,22 @@ importers:
       '@web-scada/runtime-engine':
         specifier: workspace:*
         version: link:../../packages/runtime-engine
+      '@web-scada/symbols':
+        specifier: workspace:*
+        version: link:../../packages/symbols
+    devDependencies:
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.3(@types/node@18.19.130)
+
+  apps/symbol-gallery:
+    dependencies:
+      '@web-scada/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@web-scada/renderer-svg':
+        specifier: workspace:*
+        version: link:../../packages/renderer-svg
       '@web-scada/symbols':
         specifier: workspace:*
         version: link:../../packages/symbols

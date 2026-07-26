@@ -8,3 +8,9 @@ constructed → mounted → rendered/updated → unmounted
 `mount` validates an HTML target, creates the accessible hierarchy, installs delegated listeners, and sizes the SVG. A second mount throws `RENDERER_ALREADY_MOUNTED`. `unmount` removes listeners, DOM, maps, references, and pending frames. `dispose` is idempotent and permanently invalidates future use.
 
 Rendering before mount and use after disposal throw typed errors. Missing symbol renderers recover through a visible fallback and warning event.
+
+See also:
+
+- [Architecture index](README.md)
+- [Master architecture](../master-spec/architecture.md)
+- [Data model](../data-model/README.md)

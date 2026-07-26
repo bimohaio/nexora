@@ -35,11 +35,6 @@ export const DEFAULT_RENDERER_OPTIONS: RendererOptions = {
   ariaLabel: "SCADA process diagram"
 };
 
-export interface RenderChangeSet extends DocumentChangeSet {
-  readonly viewportChanged?: boolean;
-  readonly symbolRegistryChanged?: boolean;
-}
-
 export type RendererEventType =
   | "renderer-mounted"
   | "renderer-unmounted"
@@ -50,6 +45,7 @@ export type RendererEventType =
   | "entity-pointer-enter"
   | "entity-pointer-leave"
   | "entity-pointer-down"
+  | "symbol-metadata-missing"
   | "symbol-renderer-missing";
 
 export interface EntityPointerMetadata {
@@ -88,6 +84,7 @@ export interface SvgSymbolRenderContext {
 export interface SvgSymbolRenderer {
   create(context: SvgSymbolRenderContext): SVGGElement;
   update(element: SVGGElement, context: SvgSymbolRenderContext): void;
+  dispose?(element: SVGGElement): void;
 }
 
 export interface SvgSymbolRendererRegistry {
@@ -107,9 +104,12 @@ export interface SvgRendererDependencies {
 export interface SvgRenderer {
   mount(container: HTMLElement): void;
   unmount(): void;
-  renderDocument(document: ScadaDocument): void;
-  renderChanges(document: ScadaDocument, changes: RenderChangeSet): void;
-  scheduleRenderChanges(document: ScadaDocument, changes: RenderChangeSet): void;
+  renderDocument(document: Readonly<ScadaDocument>): void;
+  renderChanges(document: Readonly<ScadaDocument>, changes: Readonly<DocumentChangeSet>): void;
+  scheduleRenderChanges(
+    document: Readonly<ScadaDocument>,
+    changes: Readonly<DocumentChangeSet>
+  ): void;
   setViewport(viewport: Viewport): void;
   setZoom(zoom: number, anchor?: Point): void;
   panBy(delta: Point): void;

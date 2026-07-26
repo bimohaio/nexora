@@ -21,4 +21,9 @@ The API supports lifecycle, full and incremental render, animation-frame schedul
 
 Layer strategy A owns connections, nodes, and ports per layer. Entity maps preserve unchanged outer SVG elements. SVG-specific symbol adapters are injected separately from generic metadata. Definition IDs are namespaced per renderer instance.
 
+The default SVG visual registry includes the compatible Phase 1 visuals and all
+37 Phase 3 industrial visuals. Alias nodes resolve canonical metadata before
+visual lookup. Visual adapters may implement `dispose(element)` for deterministic
+resource cleanup.
+
 Limitations: basic orthogonal routes have no obstacle avoidance; export is prepared but not public; text measurement/wrapping, keyboard entity navigation, designer selection/editing, binding evaluation, and very-large-scene virtualization are deferred.

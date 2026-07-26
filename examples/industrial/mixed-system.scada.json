@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "doc_sample_mixed_system",
+  "metadata": {
+    "name": "Mixed industrial control system",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "tags": ["phase-3", "mixed"]
+  },
+  "canvas": {
+    "width": 1000,
+    "height": 600,
+    "background": "#07111f",
+    "gridSize": 20,
+    "gridVisible": true,
+    "snapToGrid": true,
+    "coordinateUnit": "logical",
+    "defaultViewport": { "x": 0, "y": 0, "zoom": 1 }
+  },
+  "layers": [
+    { "id": "layer_control", "name": "Control", "order": 0, "visible": true, "locked": false },
+    { "id": "layer_safety", "name": "Safety", "order": 1, "visible": true, "locked": false }
+  ],
+  "nodes": [
+    {
+      "id": "node_plc_1",
+      "name": "Process PLC",
+      "symbolType": "network-control.plc",
+      "transform": {
+        "x": 140,
+        "y": 180,
+        "width": 140,
+        "height": 110,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": {},
+      "bindings": [],
+      "layerId": "layer_control",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "node_hmi_1",
+      "name": "Operator HMI",
+      "symbolType": "network-control.hmi",
+      "transform": {
+        "x": 470,
+        "y": 180,
+        "width": 150,
+        "height": 105,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": {},
+      "bindings": [],
+      "layerId": "layer_control",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "node_estop_1",
+      "name": "Emergency stop",
+      "symbolType": "safety.emergency-stop",
+      "transform": {
+        "x": 310,
+        "y": 390,
+        "width": 84,
+        "height": 84,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": {},
+      "bindings": [],
+      "layerId": "layer_safety",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn_network_1",
+      "name": "Control network",
+      "source": { "nodeId": "node_plc_1", "portId": "network-out" },
+      "target": { "nodeId": "node_hmi_1", "portId": "network-in" },
+      "routing": "direct",
+      "waypoints": [],
+      "medium": "network",
+      "direction": "bidirectional",
+      "style": { "stroke": "#22d3ee", "strokeWidth": 3 },
+      "layerId": "layer_control",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "variables": [],
+  "bindings": [],
+  "runtimeSettings": { "refreshInterval": 250, "defaultQuality": "unknown" }
+}

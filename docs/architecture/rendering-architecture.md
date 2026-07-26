@@ -7,3 +7,9 @@ Symbol metadata remains in `@web-scada/symbols`. SVG-specific `SvgSymbolRenderer
 Layer strategy A is used: every ordered layer owns connection, node, and port groups. This gives deterministic layer z-order and guarantees connections render below nodes and ports within each layer.
 
 Full rendering uses fragments/groups and rebuilds renderer-owned entities. Incremental rendering uses stable maps, creates/removes only named entities, preserves unrelated elements, and refreshes connections whose endpoint nodes changed. Scheduled changes coalesce into one `requestAnimationFrame`; synchronous `renderChanges` remains available for deterministic tests.
+
+See also:
+
+- [Architecture index](README.md)
+- [Master architecture](../master-spec/architecture.md)
+- [Data model](../data-model/README.md)

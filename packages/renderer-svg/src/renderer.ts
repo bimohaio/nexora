@@ -1,7 +1,7 @@
 import {
   UlidEntityIdGenerator,
-  createEmptyChangeSet,
   mergeChangeSets,
+  type DocumentChangeSet,
   type ScadaConnection,
   type ScadaDocument,
   type JsonValue,
@@ -16,14 +16,13 @@ import {
   createNodeTransform,
   createPathData,
   fitRectangleToViewport,
-  normalizeRenderChangeSet,
+  normalizeDocumentChangeSet,
   resolveConnectionPoints,
   zoomViewportAtPoint
 } from "./calculations.js";
 import {
   DEFAULT_RENDERER_OPTIONS,
   type EntityPointerMetadata,
-  type RenderChangeSet,
   type RendererEventType,
   type RendererOptions,
   type SvgRenderer,
@@ -53,6 +52,38 @@ interface LayerElements {
 }
 
 const EMPTY_CONTEXT: Readonly<Record<string, never>> = {};
+
+function validateRendererOptions(options: RendererOptions): void {
+  const validGridPattern = ["lines", "dots", "cross"].includes(options.gridPattern);
+  const validPortVisibility = ["always", "hover", "never"].includes(options.portVisibility);
+  if (
+    !validGridPattern ||
+    !validPortVisibility ||
+    !Number.isFinite(options.connectionHitAreaWidth) ||
+    options.connectionHitAreaWidth <= 0 ||
+    !Number.isFinite(options.minZoom) ||
+    options.minZoom <= 0 ||
+    !Number.isFinite(options.maxZoom) ||
+    options.maxZoom < options.minZoom ||
+    (options.gridSize !== undefined &&
+      (!Number.isFinite(options.gridSize) || options.gridSize <= 0)) ||
+    options.ariaLabel.trim() === ""
+  )
+    throw new RendererError("RENDER_OPTIONS_INVALID", "Renderer options are invalid.");
+}
+
+function findDirectSymbolVisual(group: SVGGElement): SVGGElement | undefined {
+  return Array.from(group.children).find(
+    (child): child is SVGGElement =>
+      child.tagName.toLowerCase() === "g" && child.hasAttribute("data-scada-symbol")
+  );
+}
+
+function findDirectTitle(group: SVGGElement): SVGTitleElement | undefined {
+  return Array.from(group.children).find(
+    (child): child is SVGTitleElement => child.tagName.toLowerCase() === "title"
+  );
+}
 
 export class NativeSvgRenderer implements SvgRenderer {
   readonly #symbols: SvgRendererDependencies["symbols"];
@@ -84,7 +115,7 @@ export class NativeSvgRenderer implements SvgRenderer {
   #disposed = false;
   #pendingFrame: number | undefined;
   #pendingDocument: ScadaDocument | undefined;
-  #pendingChanges: RenderChangeSet | undefined;
+  #pendingChanges: DocumentChangeSet | undefined;
 
   public constructor(dependencies: SvgRendererDependencies) {
     this.#symbols = dependencies.symbols;
@@ -94,6 +125,7 @@ export class NativeSvgRenderer implements SvgRenderer {
     this.#logger = dependencies.logger;
     this.#runtimeState = dependencies.runtimeState;
     this.#options = { ...DEFAULT_RENDERER_OPTIONS, ...dependencies.options };
+    validateRendererOptions(this.#options);
     this.#definitionPrefix = new UlidEntityIdGenerator().create("group").replaceAll("_", "-");
   }
 
@@ -154,6 +186,7 @@ export class NativeSvgRenderer implements SvgRenderer {
   public unmount(): void {
     if (this.#svg === undefined) return;
     this.#cancelScheduledFrame();
+    this.#disposeAllSymbolVisuals();
     for (const { type, listener } of this.#listeners) this.#svg.removeEventListener(type, listener);
     this.#listeners.length = 0;
     this.#svg.remove();
@@ -172,6 +205,7 @@ export class NativeSvgRenderer implements SvgRenderer {
     this.#assertMounted();
     this.#emit("render-started");
     try {
+      this.#disposeAllSymbolVisuals();
       this.#document = document;
       this.#clearEntityMaps();
       this.#layersElement?.replaceChildren();
@@ -200,15 +234,22 @@ export class NativeSvgRenderer implements SvgRenderer {
     }
   }
 
-  public renderChanges(document: ScadaDocument, changes: RenderChangeSet): void {
+  public renderChanges(
+    document: Readonly<ScadaDocument>,
+    changes: Readonly<DocumentChangeSet>
+  ): void {
     this.#assertMounted();
-    if (this.#document === undefined || changes.symbolRegistryChanged === true) {
+    if (this.#document === undefined) {
       this.renderDocument(document);
       return;
     }
-    const normalized = normalizeRenderChangeSet(changes);
+    const previousDocument = this.#document;
+    const normalized = normalizeDocumentChangeSet(changes);
     this.#document = document;
-    if (normalized.canvasChanged) this.#renderCanvas();
+    if (normalized.canvasChanged) {
+      this.#renderDefinitions();
+      this.#renderCanvas();
+    }
     for (const id of normalized.removedConnectionIds) this.#removeConnection(id);
     for (const id of normalized.removedNodeIds) this.#removeNode(id);
     for (const id of normalized.removedLayerIds) this.#removeLayer(id);
@@ -223,6 +264,7 @@ export class NativeSvgRenderer implements SvgRenderer {
     this.#reorderLayers(document.layers);
 
     const changedNodeIds = new Set([...normalized.addedNodeIds, ...normalized.updatedNodeIds]);
+    const invalidatedNodeIds = new Set([...changedNodeIds, ...normalized.removedNodeIds]);
     for (const id of changedNodeIds) {
       const node = document.nodes.find(({ id: candidate }) => candidate === id);
       if (node !== undefined) this.#renderNode(node);
@@ -231,17 +273,18 @@ export class NativeSvgRenderer implements SvgRenderer {
       ...normalized.addedConnectionIds,
       ...normalized.updatedConnectionIds
     ]);
-    for (const connection of document.connections)
+    for (const connection of [...previousDocument.connections, ...document.connections])
       if (
-        changedNodeIds.has(connection.source.nodeId) ||
-        changedNodeIds.has(connection.target.nodeId)
+        invalidatedNodeIds.has(connection.source.nodeId) ||
+        invalidatedNodeIds.has(connection.target.nodeId)
       )
         affectedConnectionIds.add(connection.id);
     for (const id of affectedConnectionIds) {
       const connection = document.connections.find(({ id: candidate }) => candidate === id);
-      if (connection !== undefined) this.#renderConnection(connection);
+      if (connection === undefined) this.#removeConnection(id);
+      else this.#renderConnection(connection);
     }
-    if (normalized.viewportChanged === true) this.#applyViewport();
+    this.#reorderLayerEntities(document);
     this.#emit(
       "render-completed",
       {},
@@ -252,20 +295,14 @@ export class NativeSvgRenderer implements SvgRenderer {
     );
   }
 
-  public scheduleRenderChanges(document: ScadaDocument, changes: RenderChangeSet): void {
+  public scheduleRenderChanges(
+    document: Readonly<ScadaDocument>,
+    changes: Readonly<DocumentChangeSet>
+  ): void {
     this.#assertMounted();
     this.#pendingDocument = document;
     this.#pendingChanges =
-      this.#pendingChanges === undefined
-        ? changes
-        : {
-            ...mergeChangeSets(this.#pendingChanges, changes),
-            viewportChanged:
-              this.#pendingChanges.viewportChanged === true || changes.viewportChanged === true,
-            symbolRegistryChanged:
-              this.#pendingChanges.symbolRegistryChanged === true ||
-              changes.symbolRegistryChanged === true
-          };
+      this.#pendingChanges === undefined ? changes : mergeChangeSets(this.#pendingChanges, changes);
     if (this.#pendingFrame !== undefined) return;
     this.#pendingFrame = requestAnimationFrame(() => {
       this.#pendingFrame = undefined;
@@ -358,7 +395,9 @@ export class NativeSvgRenderer implements SvgRenderer {
   }
 
   public setOptions(options: Partial<RendererOptions>): void {
-    this.#options = { ...this.#options, ...options };
+    const nextOptions = { ...this.#options, ...options };
+    validateRendererOptions(nextOptions);
+    this.#options = nextOptions;
     if (this.#svg !== undefined) {
       this.#svg.setAttribute("aria-label", this.#options.ariaLabel);
       if (this.#document !== undefined) {
@@ -522,8 +561,44 @@ export class NativeSvgRenderer implements SvgRenderer {
   }
 
   #removeLayer(id: string): void {
-    this.#layerElements.get(id)?.root.remove();
+    const root = this.#layerElements.get(id)?.root;
+    if (root !== undefined) {
+      for (const [nodeId, element] of this.#nodeElements)
+        if (root.contains(element)) this.#nodeElements.delete(nodeId);
+      for (const [connectionId, element] of this.#connectionElements)
+        if (root.contains(element)) {
+          this.#connectionElements.delete(connectionId);
+          this.#connectionHitElements.delete(connectionId);
+        }
+      for (const [key, element] of this.#portElements)
+        if (root.contains(element)) this.#portElements.delete(key);
+      root.remove();
+    }
     this.#layerElements.delete(id);
+  }
+
+  #reorderLayerEntities(document: Readonly<ScadaDocument>): void {
+    const portsByNode = new Map<string, SVGElement[]>();
+    for (const port of this.#portElements.values()) {
+      const nodeId = port.dataset.nodeId;
+      if (nodeId === undefined) continue;
+      const ports = portsByNode.get(nodeId) ?? [];
+      ports.push(port);
+      portsByNode.set(nodeId, ports);
+    }
+    for (const connection of document.connections) {
+      const container = this.#layerElements.get(connection.layerId)?.connections;
+      const path = this.#connectionElements.get(connection.id);
+      const hitArea = this.#connectionHitElements.get(connection.id);
+      if (path !== undefined) container?.append(path);
+      if (hitArea !== undefined) container?.append(hitArea);
+    }
+    for (const node of document.nodes) {
+      const elements = this.#layerElements.get(node.layerId);
+      const visual = this.#nodeElements.get(node.id);
+      if (visual !== undefined) elements?.nodes.append(visual);
+      for (const port of portsByNode.get(node.id) ?? []) elements?.ports.append(port);
+    }
   }
 
   #renderNode(node: ScadaNode): void {
@@ -554,6 +629,8 @@ export class NativeSvgRenderer implements SvgRenderer {
     const state = this.#runtimeState?.getNodeState(node.id) ?? "normal";
     group.classList.remove(
       "scada-state-normal",
+      "scada-state-active",
+      "scada-state-inactive",
       "scada-state-running",
       "scada-state-stopped",
       "scada-state-warning",
@@ -563,7 +640,16 @@ export class NativeSvgRenderer implements SvgRenderer {
     );
     group.classList.add(runtimeStateClass(state));
     const context: SvgSymbolRenderContext = { document: this.#document, node, state };
-    const renderer = this.#symbolRenderers.get(node.symbolType);
+    const metadata = this.#symbols.get(node.symbolType);
+    if (metadata === undefined) {
+      this.#emit("symbol-metadata-missing", { nodeId: node.id }, { symbolType: node.symbolType });
+      this.#logger?.warn("Symbol metadata not found.", {
+        nodeId: node.id,
+        symbolType: node.symbolType
+      });
+    }
+    const visualType = metadata?.type ?? node.symbolType;
+    const renderer = this.#symbolRenderers.get(visualType);
     if (renderer === undefined) {
       this.#emit("symbol-renderer-missing", { nodeId: node.id }, { symbolType: node.symbolType });
       this.#logger?.warn("Symbol renderer not found.", {
@@ -571,14 +657,21 @@ export class NativeSvgRenderer implements SvgRenderer {
         symbolType: node.symbolType
       });
     }
-    let visual = group.querySelector<SVGGElement>(":scope > g[data-scada-symbol]");
-    if (visual === null) {
+    const rendererKey = renderer === undefined ? "__fallback__" : visualType;
+    let visual = findDirectSymbolVisual(group);
+    if (visual !== undefined && visual.dataset.scadaRendererType !== rendererKey) {
+      this.#disposeSymbolVisual(visual);
+      visual.remove();
+      visual = undefined;
+    }
+    if (visual === undefined) {
       visual = (renderer ?? FALLBACK_SYMBOL_RENDERER).create(context);
       visual.dataset.scadaSymbol = "";
+      visual.dataset.scadaRendererType = rendererKey;
       group.append(visual);
     } else (renderer ?? FALLBACK_SYMBOL_RENDERER).update(visual, context);
-    let title = group.querySelector<SVGTitleElement>(":scope > title");
-    if (title === null) {
+    let title = findDirectTitle(group);
+    if (title === undefined) {
       title = createSvgElement("title");
       group.prepend(title);
     }
@@ -729,8 +822,12 @@ export class NativeSvgRenderer implements SvgRenderer {
   }
 
   #removeNode(id: string): void {
+    const node = this.#nodeElements.get(id);
+    const visual = node === undefined ? undefined : findDirectSymbolVisual(node);
+    if (visual !== undefined) this.#disposeSymbolVisual(visual);
     this.#nodeElements.get(id)?.remove();
     this.#nodeElements.delete(id);
+    this.#debug?.querySelector(`[data-debug-node-id="${CSS.escape(id)}"]`)?.remove();
     for (const [key, element] of this.#portElements)
       if (key.startsWith(`${id}::`)) {
         element.remove();
@@ -812,6 +909,22 @@ export class NativeSvgRenderer implements SvgRenderer {
     this.#portElements.clear();
   }
 
+  #disposeSymbolVisual(visual: SVGGElement): void {
+    const rendererType = visual.dataset.scadaRendererType;
+    const renderer =
+      rendererType === undefined || rendererType === "__fallback__"
+        ? FALLBACK_SYMBOL_RENDERER
+        : this.#symbolRenderers.get(rendererType);
+    renderer?.dispose?.(visual);
+  }
+
+  #disposeAllSymbolVisuals(): void {
+    for (const node of this.#nodeElements.values()) {
+      const visual = findDirectSymbolVisual(node);
+      if (visual !== undefined) this.#disposeSymbolVisual(visual);
+    }
+  }
+
   #cancelScheduledFrame(): void {
     if (this.#pendingFrame !== undefined) cancelAnimationFrame(this.#pendingFrame);
     this.#pendingFrame = undefined;
@@ -832,8 +945,4 @@ export class NativeSvgRenderer implements SvgRenderer {
 
 export function createSvgRenderer(dependencies: SvgRendererDependencies): SvgRenderer {
   return new NativeSvgRenderer(dependencies);
-}
-
-export function createEmptyRenderChangeSet(): RenderChangeSet {
-  return { ...createEmptyChangeSet(), viewportChanged: false, symbolRegistryChanged: false };
 }

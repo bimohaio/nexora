@@ -3,10 +3,85 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web SCADA — Designer Foundation</title>
+    <title>Web SCADA Designer</title>
   </head>
   <body>
-    <main id="app"></main>
+    <div class="designer-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">NX</span>
+          <div><strong>Nexora Designer</strong><small>Phase 4 · Designer MVP</small></div>
+        </div>
+        <nav class="toolbar" aria-label="Designer tools">
+          <button type="button" data-tool="select" aria-pressed="true">Select <kbd>V</kbd></button>
+          <button type="button" data-tool="pan" aria-pressed="false">Pan <kbd>H</kbd></button>
+          <button type="button" data-tool="rectangle" aria-pressed="false">
+            Rectangle <kbd>R</kbd>
+          </button>
+          <button type="button" data-tool="connection" aria-pressed="false">
+            Connection <kbd>C</kbd>
+          </button>
+        </nav>
+        <div class="history-controls">
+          <button id="undo" type="button" aria-label="Undo" disabled>↶</button>
+          <button id="redo" type="button" aria-label="Redo" disabled>↷</button>
+          <button id="fit" type="button">Fit</button>
+          <button id="center-selection" type="button">Center selection</button>
+        </div>
+      </header>
+
+      <aside class="palette-panel">
+        <h2>Symbols</h2>
+        <label class="search-label"
+          >Search
+          <input id="symbol-search" type="search" placeholder="Pump, valve, sensor…" />
+        </label>
+        <div id="symbol-palette" class="symbol-palette"></div>
+      </aside>
+
+      <main class="canvas-column">
+        <div
+          id="designer-canvas"
+          class="designer-canvas"
+          tabindex="0"
+          aria-label="SCADA designer canvas"
+        >
+          <div id="renderer-host" class="renderer-host"></div>
+          <svg id="designer-overlay" class="designer-overlay" aria-hidden="true"></svg>
+        </div>
+        <footer class="statusbar">
+          <output id="status">Ready</output>
+          <output id="viewport-status">100%</output>
+        </footer>
+      </main>
+
+      <aside class="inspector-panel">
+        <h2>Inspector</h2>
+        <div id="empty-inspector" class="empty-state">Select one node to edit properties.</div>
+        <form id="node-inspector" hidden>
+          <label>Name <input name="name" type="text" /></label>
+          <div class="field-grid">
+            <label>X <input name="x" type="number" step="1" /></label>
+            <label>Y <input name="y" type="number" step="1" /></label>
+            <label>Width <input name="width" type="number" min="1" step="1" /></label>
+            <label>Height <input name="height" type="number" min="1" step="1" /></label>
+            <label>Rotation <input name="rotation" type="number" step="1" /></label>
+            <label>Fill <input name="fill" type="color" /></label>
+          </div>
+          <div class="order-controls" aria-label="Node ordering">
+            <button type="button" data-order="front">Front</button>
+            <button type="button" data-order="forward">Forward</button>
+            <button type="button" data-order="backward">Backward</button>
+            <button type="button" data-order="back">Back</button>
+          </div>
+        </form>
+        <section class="shortcuts">
+          <h3>Shortcuts</h3>
+          <p><kbd>Ctrl/Cmd</kbd> + C/X/V/D · Z · Shift+Z · A</p>
+          <p><kbd>Delete</kbd> remove · <kbd>Esc</kbd> cancel</p>
+        </section>
+      </aside>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

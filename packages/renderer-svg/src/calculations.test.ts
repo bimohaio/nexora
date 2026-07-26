@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createEmptyChangeSet } from "@web-scada/core";
 
 import {
   createDirectConnectionPoints,
@@ -8,7 +9,7 @@ import {
   createOrthogonalConnectionPoints,
   createPathData,
   fitRectangleToViewport,
-  normalizeRenderChangeSet,
+  normalizeDocumentChangeSet,
   runtimeStateClass,
   zoomViewportAtPoint
 } from "./index.js";
@@ -25,7 +26,7 @@ describe("SVG rendering calculations", () => {
         scaleX: 2,
         scaleY: 1
       })
-    ).toBe("translate(10 20) rotate(90 50 30) scale(2 1)");
+    ).toBe("translate(10 20) translate(50 30) rotate(90) scale(2 1) translate(-50 -30)");
   });
 
   it("creates direct, manual, and deterministic midpoint orthogonal routes", () => {
@@ -73,7 +74,8 @@ describe("SVG rendering calculations", () => {
   });
 
   it("normalizes change sets and runtime state classes", () => {
-    const changes = normalizeRenderChangeSet({
+    const changes = normalizeDocumentChangeSet({
+      ...createEmptyChangeSet(),
       addedNodeIds: ["node_b", "node_a", "node_a"],
       canvasChanged: true
     });

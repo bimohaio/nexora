@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "doc_sample_electrical",
+  "metadata": {
+    "name": "Electrical one-line",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "tags": ["phase-3", "electrical"]
+  },
+  "canvas": {
+    "width": 900,
+    "height": 500,
+    "background": "#07111f",
+    "gridSize": 20,
+    "gridVisible": true,
+    "snapToGrid": true,
+    "coordinateUnit": "logical",
+    "defaultViewport": { "x": 0, "y": 0, "zoom": 1 }
+  },
+  "layers": [
+    { "id": "layer_electrical", "name": "Electrical", "order": 0, "visible": true, "locked": false }
+  ],
+  "nodes": [
+    {
+      "id": "node_source_1",
+      "name": "Utility source",
+      "symbolType": "electrical.power-source",
+      "transform": {
+        "x": 120,
+        "y": 180,
+        "width": 90,
+        "height": 100,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": {},
+      "bindings": [],
+      "layerId": "layer_electrical",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "node_motor_1",
+      "name": "Drive motor",
+      "symbolType": "electrical.ac-motor",
+      "transform": {
+        "x": 430,
+        "y": 185,
+        "width": 110,
+        "height": 90,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": {},
+      "bindings": [],
+      "layerId": "layer_electrical",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn_cable_1",
+      "name": "Motor feeder",
+      "source": { "nodeId": "node_source_1", "portId": "power" },
+      "target": { "nodeId": "node_motor_1", "portId": "power" },
+      "routing": "direct",
+      "waypoints": [],
+      "medium": "electricity",
+      "direction": "forward",
+      "style": { "stroke": "#facc15", "strokeWidth": 3 },
+      "layerId": "layer_electrical",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "variables": [],
+  "bindings": [],
+  "runtimeSettings": { "refreshInterval": 250, "defaultQuality": "unknown" }
+}

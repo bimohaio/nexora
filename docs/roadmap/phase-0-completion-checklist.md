@@ -9,3 +9,9 @@
 - [x] required architecture, data-model, convention, and ADR documentation
 - [x] designer and runtime placeholder applications
 - [ ] Full renderer, designer, routing, protocols, and production UI (intentionally deferred)
+
+See also:
+
+- [Roadmap index](README.md)
+- [Master roadmap](../master-spec/roadmap.md)
+- [Phase specifications](../phases/README.md)

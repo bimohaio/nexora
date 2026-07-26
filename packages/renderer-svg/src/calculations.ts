@@ -1,4 +1,4 @@
-import type { ScadaConnection, ScadaDocument } from "@web-scada/core";
+import type { DocumentChangeSet, ScadaConnection, ScadaDocument } from "@web-scada/core";
 import {
   calculatePortPosition,
   clampZoom,
@@ -7,14 +7,14 @@ import {
   type Size,
   type Viewport
 } from "@web-scada/geometry";
-import type { GridPattern, RenderChangeSet } from "./contracts.js";
+import type { GridPattern } from "./contracts.js";
 
 export function createNodeTransform(
   transform: ScadaDocument["nodes"][number]["transform"]
 ): string {
   const centerX = transform.width / 2;
   const centerY = transform.height / 2;
-  return `translate(${transform.x} ${transform.y}) rotate(${transform.rotation} ${centerX} ${centerY}) scale(${transform.scaleX} ${transform.scaleY})`;
+  return `translate(${transform.x} ${transform.y}) translate(${centerX} ${centerY}) rotate(${transform.rotation}) scale(${transform.scaleX} ${transform.scaleY}) translate(${-centerX} ${-centerY})`;
 }
 
 export function createPathData(points: readonly Point[]): string {
@@ -111,7 +111,9 @@ export function createGridConfiguration(pattern: GridPattern, size: number): Gri
   return { pattern, size, pathData: `M ${size} 0 L 0 0 0 ${size}` };
 }
 
-export function normalizeRenderChangeSet(changes: Partial<RenderChangeSet>): RenderChangeSet {
+export function normalizeDocumentChangeSet(
+  changes: Readonly<DocumentChangeSet>
+): DocumentChangeSet {
   const unique = (values: readonly string[] | undefined): readonly string[] =>
     [...new Set(values ?? [])].sort();
   return {
@@ -130,11 +132,9 @@ export function normalizeRenderChangeSet(changes: Partial<RenderChangeSet>): Ren
     addedBindingIds: unique(changes.addedBindingIds),
     updatedBindingIds: unique(changes.updatedBindingIds),
     removedBindingIds: unique(changes.removedBindingIds),
-    canvasChanged: changes.canvasChanged ?? false,
-    metadataChanged: changes.metadataChanged ?? false,
-    runtimeSettingsChanged: changes.runtimeSettingsChanged ?? false,
-    viewportChanged: changes.viewportChanged ?? false,
-    symbolRegistryChanged: changes.symbolRegistryChanged ?? false
+    canvasChanged: changes.canvasChanged,
+    metadataChanged: changes.metadataChanged,
+    runtimeSettingsChanged: changes.runtimeSettingsChanged
   };
 }
 

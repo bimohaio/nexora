@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@web-scada/core": "workspace:*",
-    "@web-scada/geometry": "workspace:*"
+    "@web-scada/designer-engine": "workspace:*",
+    "@web-scada/geometry": "workspace:*",
+    "@web-scada/renderer-svg": "workspace:*",
+    "@web-scada/symbols": "workspace:*"
   },
   "devDependencies": {
     "vite": "^6.0.5"

@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.0.0",
+  "id": "doc_sample_instrumentation",
+  "metadata": {
+    "name": "Instrumentation loop",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-01-01T00:00:00.000Z",
+    "tags": ["phase-3", "instrumentation"]
+  },
+  "canvas": {
+    "width": 900,
+    "height": 500,
+    "background": "#07111f",
+    "gridSize": 20,
+    "gridVisible": true,
+    "snapToGrid": true,
+    "coordinateUnit": "logical",
+    "defaultViewport": { "x": 0, "y": 0, "zoom": 1 }
+  },
+  "layers": [
+    {
+      "id": "layer_instrumentation",
+      "name": "Instrumentation",
+      "order": 0,
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node_pt_101",
+      "name": "PT-101",
+      "symbolType": "instrumentation.pressure-sensor",
+      "transform": {
+        "x": 160,
+        "y": 190,
+        "width": 72,
+        "height": 72,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": { "code": "PT" },
+      "bindings": [],
+      "layerId": "layer_instrumentation",
+      "visible": true,
+      "locked": false
+    },
+    {
+      "id": "node_pic_101",
+      "name": "PIC-101",
+      "symbolType": "instrumentation.controller",
+      "transform": {
+        "x": 430,
+        "y": 185,
+        "width": 100,
+        "height": 82,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1
+      },
+      "properties": { "code": "PIC" },
+      "bindings": [],
+      "layerId": "layer_instrumentation",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "connections": [
+    {
+      "id": "conn_signal_1",
+      "name": "Pressure signal",
+      "source": { "nodeId": "node_pt_101", "portId": "signal" },
+      "target": { "nodeId": "node_pic_101", "portId": "measurement" },
+      "routing": "direct",
+      "waypoints": [],
+      "medium": "signal",
+      "direction": "forward",
+      "style": { "stroke": "#a78bfa", "strokeWidth": 2, "dashPattern": [6, 3] },
+      "layerId": "layer_instrumentation",
+      "visible": true,
+      "locked": false
+    }
+  ],
+  "variables": [],
+  "bindings": [],
+  "runtimeSettings": { "refreshInterval": 250, "defaultQuality": "unknown" }
+}

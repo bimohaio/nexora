@@ -6,6 +6,7 @@ import type {
   SvgSymbolRendererRegistry
 } from "./contracts.js";
 import { createSvgElement } from "./dom.js";
+import { registerIndustrialSvgSymbolRenderers } from "./industrial-symbol-renderers.js";
 
 function stringProperty(context: SvgSymbolRenderContext, key: string, fallback: string): string {
   const value = context.node.properties[key];
@@ -29,6 +30,8 @@ export function runtimeStateClass(state: SymbolState): string {
 function stateColor(state: SymbolState, fallback: string): string {
   const colors: Readonly<Record<SymbolState, string>> = {
     normal: fallback,
+    active: "#22c55e",
+    inactive: "#64748b",
     running: "#22c55e",
     stopped: "#64748b",
     warning: "#f59e0b",
@@ -78,6 +81,10 @@ class DrawingSymbolRenderer implements SvgSymbolRenderer {
     element.replaceChildren();
     element.setAttribute("class", `scada-symbol ${runtimeStateClass(context.state)}`);
     this.draw(element, context);
+  }
+
+  public dispose(element: SVGGElement): void {
+    element.replaceChildren();
   }
 }
 
@@ -237,6 +244,7 @@ export function createInitialSvgSymbolRendererRegistry(): InMemorySvgSymbolRende
   registry.register("equipment.motor", motorRenderer);
   registry.register("equipment.sensor", sensorRenderer);
   registry.register("equipment.indicator", indicatorRenderer);
+  registerIndustrialSvgSymbolRenderers(registry);
   return registry;
 }
 

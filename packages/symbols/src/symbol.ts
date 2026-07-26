@@ -1,8 +1,19 @@
 import type { ExtensionData, JsonValue, PortDefinition } from "@web-scada/core";
 import { isNormalizedPoint } from "@web-scada/geometry";
+import { INDUSTRIAL_SYMBOLS } from "./industrial-symbols.js";
 
 export type SymbolState =
-  "normal" | "running" | "stopped" | "warning" | "alarm" | "offline" | "disabled";
+  | "normal"
+  | "active"
+  | "inactive"
+  | "running"
+  | "stopped"
+  | "warning"
+  | "alarm"
+  | "offline"
+  | "disabled";
+
+export type SymbolRuntimeCapability = Exclude<SymbolState, "normal">;
 
 export type BuiltInSymbolCategory =
   | "basic"
@@ -16,6 +27,11 @@ export type BuiltInSymbolCategory =
   | "text"
   | "pipe"
   | "electrical"
+  | "process"
+  | "instrumentation"
+  | "bms"
+  | "safety"
+  | "network-control"
   | "custom";
 export type SymbolCategory = BuiltInSymbolCategory | (string & {});
 
@@ -63,7 +79,16 @@ export interface SymbolDefinition {
   readonly editableProperties: readonly PropertyMetadata[];
   readonly bindableProperties: readonly BindablePropertyMetadata[];
   readonly supportedStates: readonly SymbolState[];
+  readonly runtimeCapabilities?: readonly SymbolRuntimeCapability[];
+  readonly aliases?: readonly string[];
+  readonly deprecation?: SymbolDeprecation;
   readonly metadata?: ExtensionData;
+}
+
+export interface SymbolDeprecation {
+  readonly deprecated: boolean;
+  readonly message?: string;
+  readonly replacedBy?: string;
 }
 
 export interface RegisterOptions {
@@ -81,8 +106,20 @@ export interface SymbolRegistry {
   clear(): void;
 }
 
+export interface AliasAwareSymbolRegistry extends SymbolRegistry {
+  getCanonicalType(typeOrAlias: string): string | undefined;
+  getAliases(type: string): readonly string[];
+  isAlias(type: string): boolean;
+}
+
 function validateDefinition(definition: SymbolDefinition): void {
   if (definition.type.trim() === "") throw new Error("Symbol type is required.");
+  const aliases = definition.aliases ?? [];
+  const uniqueAliases = new Set(aliases);
+  if (uniqueAliases.size !== aliases.length)
+    throw new Error(`Duplicate symbol alias: ${definition.type}`);
+  if (aliases.some((alias) => alias.trim() === "" || alias === definition.type))
+    throw new Error(`Invalid symbol alias: ${definition.type}`);
   if (
     !Number.isFinite(definition.defaultWidth) ||
     !Number.isFinite(definition.defaultHeight) ||
@@ -102,16 +139,41 @@ function validateDefinition(definition: SymbolDefinition): void {
     if (port.maxConnections !== undefined && port.maxConnections <= 0)
       throw new Error(`Port maxConnections must be positive: ${port.id}`);
   }
+  const supportedStates = new Set(definition.supportedStates);
+  if (supportedStates.size !== definition.supportedStates.length)
+    throw new Error(`Duplicate supported state: ${definition.type}`);
+  for (const capability of definition.runtimeCapabilities ?? [])
+    if (!supportedStates.has(capability))
+      throw new Error(
+        `Runtime capability must be included in supported states: ${definition.type}:${capability}`
+      );
+  if (
+    definition.deprecation?.deprecated === true &&
+    definition.deprecation.replacedBy === definition.type
+  )
+    throw new Error(`Deprecated symbol cannot replace itself: ${definition.type}`);
 }
 
-export class InMemorySymbolRegistry implements SymbolRegistry {
+export class InMemorySymbolRegistry implements AliasAwareSymbolRegistry {
   readonly #definitions = new Map<string, SymbolDefinition>();
+  readonly #aliases = new Map<string, string>();
 
   public register(definition: SymbolDefinition, options: RegisterOptions = {}): void {
     validateDefinition(definition);
     if (this.#definitions.has(definition.type) && options.replace !== true)
       throw new Error(`Symbol type is already registered: ${definition.type}`);
+    const aliases = definition.aliases ?? [];
+    for (const alias of aliases) {
+      const owner = this.#aliases.get(alias);
+      if (this.#definitions.has(alias) || (owner !== undefined && owner !== definition.type))
+        throw new Error(`Symbol alias is already registered: ${alias}`);
+    }
+    const canonicalAliasOwner = this.#aliases.get(definition.type);
+    if (canonicalAliasOwner !== undefined && canonicalAliasOwner !== definition.type)
+      throw new Error(`Symbol type conflicts with registered alias: ${definition.type}`);
+    if (options.replace === true) this.#removeAliases(definition.type);
     this.#definitions.set(definition.type, definition);
+    for (const alias of aliases) this.#aliases.set(alias, definition.type);
   }
 
   public registerMany(
@@ -124,15 +186,19 @@ export class InMemorySymbolRegistry implements SymbolRegistry {
   }
 
   public unregister(type: string): boolean {
-    return this.#definitions.delete(type);
+    const canonicalType = this.getCanonicalType(type);
+    if (canonicalType === undefined) return false;
+    this.#removeAliases(canonicalType);
+    return this.#definitions.delete(canonicalType);
   }
 
   public get(type: string): SymbolDefinition | undefined {
-    return this.#definitions.get(type);
+    const canonicalType = this.getCanonicalType(type);
+    return canonicalType === undefined ? undefined : this.#definitions.get(canonicalType);
   }
 
   public has(type: string): boolean {
-    return this.#definitions.has(type);
+    return this.getCanonicalType(type) !== undefined;
   }
 
   public getAll(): readonly SymbolDefinition[] {
@@ -143,8 +209,31 @@ export class InMemorySymbolRegistry implements SymbolRegistry {
     return this.getAll().filter((definition) => definition.category === category);
   }
 
+  public getCanonicalType(typeOrAlias: string): string | undefined {
+    if (this.#definitions.has(typeOrAlias)) return typeOrAlias;
+    return this.#aliases.get(typeOrAlias);
+  }
+
+  public getAliases(type: string): readonly string[] {
+    const canonicalType = this.getCanonicalType(type);
+    if (canonicalType === undefined) return [];
+    return [...this.#aliases]
+      .filter(([, owner]) => owner === canonicalType)
+      .map(([alias]) => alias);
+  }
+
+  public isAlias(type: string): boolean {
+    return this.#aliases.has(type);
+  }
+
   public clear(): void {
     this.#definitions.clear();
+    this.#aliases.clear();
+  }
+
+  #removeAliases(canonicalType: string): void {
+    for (const [alias, owner] of this.#aliases)
+      if (owner === canonicalType) this.#aliases.delete(alias);
   }
 }
 
@@ -349,8 +438,14 @@ export const INITIAL_SYMBOLS: readonly SymbolDefinition[] = [
   INDICATOR_SYMBOL
 ];
 
-export function createExampleSymbolRegistry(): InMemorySymbolRegistry {
+export const ALL_SYMBOLS: readonly SymbolDefinition[] = [...INITIAL_SYMBOLS, ...INDUSTRIAL_SYMBOLS];
+
+export function createIndustrialSymbolRegistry(): InMemorySymbolRegistry {
   const registry = new InMemorySymbolRegistry();
-  registry.registerMany(INITIAL_SYMBOLS);
+  registry.registerMany(ALL_SYMBOLS);
   return registry;
+}
+
+export function createExampleSymbolRegistry(): InMemorySymbolRegistry {
+  return createIndustrialSymbolRegistry();
 }

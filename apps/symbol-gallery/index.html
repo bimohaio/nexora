@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Industrial Symbol Gallery</title>
+  </head>
+  <body>
+    <header class="gallery-header">
+      <div>
+        <p class="eyebrow">Web SCADA Engine · Phase 3</p>
+        <h1>Industrial Symbol Library</h1>
+        <p>Metadata-driven symbols with SVG-local visuals and normalized ports.</p>
+      </div>
+      <div class="gallery-controls" aria-label="Gallery preview controls">
+        <label>
+          Runtime state
+          <select id="state-select">
+            <option value="normal">Normal</option>
+            <option value="running">Running</option>
+            <option value="active">Active</option>
+            <option value="warning">Warning</option>
+            <option value="alarm">Alarm</option>
+            <option value="offline">Offline</option>
+            <option value="disabled">Disabled</option>
+          </select>
+        </label>
+        <button id="size-toggle" type="button">Show minimum sizes</button>
+      </div>
+    </header>
+    <main id="gallery" aria-live="polite"></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

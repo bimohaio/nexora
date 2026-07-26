@@ -12,3 +12,9 @@
 - [x] Valid water-treatment sample and small demo integration
 - [x] Unit and integration coverage
 - [ ] SVG rendering and designer/runtime production behavior (intentionally deferred)
+
+See also:
+
+- [Roadmap index](README.md)
+- [Master roadmap](../master-spec/roadmap.md)
+- [Phase specifications](../phases/README.md)
