@@ -15,6 +15,7 @@ references.
 - [Audits](audits/README.md) — historical conformance reports.
 - [API](api/README.md) — implemented public contracts and future placeholders.
 - [Roadmap](roadmap/README.md) — milestones, checklists, and release planning.
+- [Runtime Engine](runtime/README.md) — Phase 6 values, snapshots, lifecycle, and integration.
 
 ## Documentation authority
 

@@ -6,6 +6,7 @@ import {
   removeConnection,
   removeNode,
   updateNode,
+  validateDocumentSemantics,
   type Clock,
   type Command,
   type CommandContext,
@@ -25,16 +26,16 @@ export interface DesignerCommandDependencies {
   readonly symbolRegistry?: CoreSymbolRegistry;
 }
 
-type DocumentOperation = (document: ScadaDocument) => ScadaDocument;
+export type DocumentOperation = (document: ScadaDocument) => ScadaDocument;
 
-abstract class SnapshotCommand implements Command {
+export class SnapshotCommand implements Command {
   public readonly id: string;
   public readonly timestamp: string;
   public readonly metadata: Readonly<Record<string, unknown>> = {};
   #before: ScadaDocument | undefined;
   #after: ScadaDocument | undefined;
 
-  protected constructor(
+  public constructor(
     public readonly type: Command["type"],
     private readonly operation: DocumentOperation,
     dependencies: DesignerCommandDependencies = {}
@@ -61,6 +62,31 @@ abstract class SnapshotCommand implements Command {
 
   public canMergeWith(): boolean {
     return false;
+  }
+}
+
+export class AtomicDocumentCommand extends SnapshotCommand {
+  public constructor(
+    type: Command["type"],
+    operation: DocumentOperation,
+    dependencies: DesignerCommandDependencies = {}
+  ) {
+    super(
+      type,
+      (document) => {
+        const candidate = operation(document);
+        if (candidate === document) return document;
+        const clock = dependencies.clock ?? new SystemClock();
+        const next = {
+          ...candidate,
+          metadata: { ...candidate.metadata, updatedAt: clock.now() }
+        };
+        return validateDocumentSemantics(next, mutationOptions(dependencies)).valid
+          ? next
+          : document;
+      },
+      dependencies
+    );
   }
 }
 

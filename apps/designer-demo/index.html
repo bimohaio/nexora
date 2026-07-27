@@ -80,6 +80,42 @@
           <p><kbd>Ctrl/Cmd</kbd> + C/X/V/D · Z · Shift+Z · A</p>
           <p><kbd>Delete</kbd> remove · <kbd>Esc</kbd> cancel</p>
         </section>
+        <section class="advanced-actions" aria-label="Advanced editing">
+          <h3>Advanced editing</h3>
+          <div class="order-controls">
+            <button id="rotate-left" type="button">↺ 15°</button>
+            <button id="rotate-right" type="button">↻ 15°</button>
+            <button id="group" type="button">Group</button>
+            <button id="ungroup" type="button">Ungroup</button>
+            <button id="lock" type="button">Lock</button>
+            <button id="unlock" type="button">Unlock</button>
+            <button id="hide" type="button">Hide</button>
+          </div>
+          <label
+            >Align
+            <select id="align">
+              <option value="">Choose…</option>
+              <option value="left">Left</option>
+              <option value="horizontal-center">Horizontal center</option>
+              <option value="right">Right</option>
+              <option value="top">Top</option>
+              <option value="vertical-center">Vertical center</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </label>
+          <div class="order-controls">
+            <button id="distribute-horizontal" type="button">Distribute H</button>
+            <button id="distribute-vertical" type="button">Distribute V</button>
+          </div>
+          <label
+            >Move to layer
+            <select id="layer-target"></select>
+          </label>
+          <div class="order-controls" aria-label="Connection waypoint editing">
+            <button id="add-waypoint" type="button">Add waypoint</button>
+            <button id="remove-waypoint" type="button">Remove waypoint</button>
+          </div>
+        </section>
       </aside>
     </div>
     <script type="module" src="/src/main.ts"></script>

@@ -1,6 +1,37 @@
 import type { ScadaDocument, ScadaNode } from "@web-scada/core";
 import { snapValueToGrid, type Point } from "@web-scada/geometry";
-import type { AlignmentGuide, SnapOptions } from "./contracts.js";
+import type { AlignmentGuide, SnapCandidate, SnapCandidateType, SnapOptions } from "./contracts.js";
+
+const SNAP_PRIORITY: Readonly<Record<SnapCandidateType, number>> = {
+  guide: 0,
+  port: 1,
+  rotation: 2,
+  alignment: 3,
+  spacing: 4,
+  edge: 5,
+  center: 5,
+  waypoint: 6,
+  grid: 7
+};
+
+export function documentSnapTolerance(screenPixels: number, zoom: number): number {
+  if (!Number.isFinite(screenPixels) || screenPixels < 0 || !Number.isFinite(zoom) || zoom <= 0)
+    throw new RangeError("Snap tolerance and zoom must be finite and positive.");
+  return screenPixels / zoom;
+}
+
+export function rankSnapCandidates(candidates: readonly SnapCandidate[]): readonly SnapCandidate[] {
+  return [...candidates].sort((left, right) => {
+    const priority =
+      (left.priority ?? SNAP_PRIORITY[left.type]) - (right.priority ?? SNAP_PRIORITY[right.type]);
+    if (priority !== 0) return priority;
+    if (left.distance !== right.distance) return left.distance - right.distance;
+    const type = left.type.localeCompare(right.type);
+    if (type !== 0) return type;
+    const source = (left.sourceId ?? "").localeCompare(right.sourceId ?? "");
+    return source || (left.targetId ?? "").localeCompare(right.targetId ?? "");
+  });
+}
 
 export interface SnapResult {
   readonly delta: Point;

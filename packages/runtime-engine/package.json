@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@web-scada/core": "workspace:*",
-    "@web-scada/renderer-svg": "workspace:*",
     "@web-scada/symbols": "workspace:*"
   }
 }

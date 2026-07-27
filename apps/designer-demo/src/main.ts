@@ -8,11 +8,18 @@ import {
   SelectTool,
   createDesignerEngine,
   handleDesignerShortcut,
+  isDesignerShortcutTarget,
   type DesignerController,
   type DesignerPointerEvent,
   type DesignerToolId,
   type ResizeHandle
 } from "@web-scada/designer-engine";
+import {
+  angleFromCenter,
+  getRectangleCenter,
+  rotateTransforms,
+  snapAngle
+} from "@web-scada/geometry";
 import {
   createSvgRenderer,
   resolveEntityMetadata,
@@ -125,12 +132,53 @@ let resize:
       readonly origin: { readonly x: number; readonly y: number };
     }
   | undefined;
+let rotation:
+  | {
+      readonly center: { readonly x: number; readonly y: number };
+      readonly startAngle: number;
+      readonly nodes: readonly ScadaNode[];
+    }
+  | undefined;
+let waypoint:
+  | {
+      readonly connectionId: string;
+      readonly index: number;
+      readonly origin: { readonly x: number; readonly y: number };
+    }
+  | undefined;
 
 canvas.addEventListener("pointerdown", (event) => {
   if (event.button !== 0) return;
   canvas.focus({ preventScroll: true });
   const target = event.target;
-  if (target instanceof SVGElement && target.dataset.resizeHandle !== undefined) {
+  if (
+    target instanceof SVGElement &&
+    target.dataset.connectionId !== undefined &&
+    target.dataset.waypointIndex !== undefined
+  ) {
+    const index = Number(target.dataset.waypointIndex);
+    if (Number.isInteger(index))
+      waypoint = {
+        connectionId: target.dataset.connectionId,
+        index,
+        origin: designer.toCanvasPoint(localScreenPoint(event))
+      };
+  } else if (target instanceof SVGElement && target.dataset.rotateHandle !== undefined) {
+    const nodes = designer
+      .getState()
+      .document.nodes.filter(({ id }) =>
+        designer.getState().selection.selectedNodeIds.includes(id)
+      );
+    const selected = nodes[0];
+    if (selected !== undefined) {
+      const center = getRectangleCenter(selected.transform);
+      rotation = {
+        center,
+        startAngle: angleFromCenter(center, designer.toCanvasPoint(localScreenPoint(event))),
+        nodes
+      };
+    }
+  } else if (target instanceof SVGElement && target.dataset.resizeHandle !== undefined) {
     const nodeId = target.dataset.nodeId;
     if (nodeId !== undefined) {
       resize = {
@@ -148,7 +196,34 @@ canvas.addEventListener("pointerdown", (event) => {
 canvas.addEventListener("pointermove", (event) => {
   if (event.pointerId !== pointerId) return;
   const point = designer.toCanvasPoint(localScreenPoint(event));
-  if (resize !== undefined) {
+  if (waypoint !== undefined) {
+    designer.setInteraction({
+      type: "waypoint",
+      connectionId: waypoint.connectionId,
+      waypointIndex: waypoint.index,
+      origin: waypoint.origin,
+      current: point
+    });
+  } else if (rotation !== undefined) {
+    const rawDelta = angleFromCenter(rotation.center, point) - rotation.startAngle;
+    const angle = snapAngle(rawDelta).angle;
+    const transforms = rotateTransforms(
+      rotation.nodes.map(({ transform }) => transform),
+      angle,
+      rotation.center
+    );
+    designer.setInteraction({
+      type: "rotate",
+      origin: rotation.center,
+      current: point,
+      nodeIds: rotation.nodes.map(({ id }) => id),
+      previewNodes: rotation.nodes.map((node, index) => ({
+        ...node,
+        transform: transforms[index] ?? node.transform
+      })),
+      angle
+    });
+  } else if (resize !== undefined) {
     const node = designer.getState().document.nodes.find(({ id }) => id === resize?.nodeId);
     if (node !== undefined)
       designer.setInteraction({
@@ -164,7 +239,21 @@ canvas.addEventListener("pointermove", (event) => {
 
 function finishPointer(event: PointerEvent): void {
   if (event.pointerId !== pointerId) return;
-  if (resize !== undefined) {
+  if (waypoint !== undefined) {
+    designer.moveWaypoint(
+      waypoint.connectionId,
+      waypoint.index,
+      designer.toCanvasPoint(localScreenPoint(event))
+    );
+    waypoint = undefined;
+    designer.setInteraction({ type: "idle" });
+  } else if (rotation !== undefined) {
+    const point = designer.toCanvasPoint(localScreenPoint(event));
+    const angle = snapAngle(angleFromCenter(rotation.center, point) - rotation.startAngle).angle;
+    designer.rotateSelection(angle);
+    rotation = undefined;
+    designer.setInteraction({ type: "idle" });
+  } else if (resize !== undefined) {
     const point = designer.toCanvasPoint(localScreenPoint(event));
     designer.resizeNode(resize.nodeId, resize.handle, {
       x: point.x - resize.origin.x,
@@ -178,7 +267,18 @@ function finishPointer(event: PointerEvent): void {
 }
 
 canvas.addEventListener("pointerup", finishPointer);
-canvas.addEventListener("pointercancel", finishPointer);
+function cancelPointer(event: PointerEvent): void {
+  if (event.pointerId !== pointerId) return;
+  resize = undefined;
+  rotation = undefined;
+  waypoint = undefined;
+  toolController.cancel();
+  designer.setInteraction({ type: "idle" });
+  designer.setGuides([]);
+  pointerId = undefined;
+}
+canvas.addEventListener("pointercancel", cancelPointer);
+canvas.addEventListener("lostpointercapture", cancelPointer);
 canvas.addEventListener(
   "wheel",
   (event) => {
@@ -207,7 +307,15 @@ for (const button of document.querySelectorAll<HTMLButtonElement>("[data-tool]")
   });
 
 document.addEventListener("keydown", (event) => {
-  if (event.target instanceof HTMLInputElement) return;
+  const focus =
+    event.target instanceof HTMLElement
+      ? {
+          tagName: event.target.tagName,
+          contentEditable: event.target.isContentEditable,
+          shortcutGuard: event.target.closest("[data-shortcut-guard]") !== null
+        }
+      : undefined;
+  if (isDesignerShortcutTarget(focus)) return;
   const key = event.key.toLowerCase();
   if (!event.ctrlKey && !event.metaKey && key === "v") activateTool("select");
   else if (!event.ctrlKey && !event.metaKey && key === "h") activateTool("pan");
@@ -342,6 +450,88 @@ required<HTMLButtonElement>("#fit").addEventListener("click", () => {
 });
 required<HTMLButtonElement>("#center-selection").addEventListener("click", () => {
   designer.centerSelection({ width: canvas.clientWidth, height: canvas.clientHeight });
+});
+
+required<HTMLButtonElement>("#rotate-left").addEventListener("click", () => {
+  designer.rotateSelection(-15);
+});
+required<HTMLButtonElement>("#rotate-right").addEventListener("click", () => {
+  designer.rotateSelection(15);
+});
+required<HTMLButtonElement>("#group").addEventListener("click", () => {
+  designer.groupSelection();
+});
+required<HTMLButtonElement>("#ungroup").addEventListener("click", () => {
+  designer.ungroupSelection();
+});
+required<HTMLButtonElement>("#lock").addEventListener("click", () => {
+  designer.setSelectionLocked(true);
+});
+required<HTMLButtonElement>("#unlock").addEventListener("click", () => {
+  designer.setSelectionLocked(false);
+});
+required<HTMLButtonElement>("#hide").addEventListener("click", () => {
+  designer.setSelectionVisible(false);
+});
+required<HTMLButtonElement>("#distribute-horizontal").addEventListener("click", () => {
+  designer.distributeSelection("horizontal");
+});
+required<HTMLButtonElement>("#distribute-vertical").addEventListener("click", () => {
+  designer.distributeSelection("vertical");
+});
+required<HTMLSelectElement>("#align").addEventListener("change", (event) => {
+  const alignment = (event.currentTarget as HTMLSelectElement).value;
+  if (
+    alignment === "left" ||
+    alignment === "horizontal-center" ||
+    alignment === "right" ||
+    alignment === "top" ||
+    alignment === "vertical-center" ||
+    alignment === "bottom"
+  )
+    designer.alignSelection(alignment);
+});
+const layerTarget = required<HTMLSelectElement>("#layer-target");
+for (const layer of designer.getState().document.layers) {
+  const option = document.createElement("option");
+  option.value = layer.id;
+  option.textContent = layer.name;
+  layerTarget.append(option);
+}
+layerTarget.addEventListener("change", () => {
+  designer.reassignSelectionToLayer(layerTarget.value);
+});
+required<HTMLButtonElement>("#add-waypoint").addEventListener("click", () => {
+  const state = designer.getState();
+  const connection = state.document.connections.find(({ id }) =>
+    state.selection.selectedConnectionIds.includes(id)
+  );
+  if (connection === undefined) return;
+  const source = state.document.nodes.find(({ id }) => id === connection.source.nodeId);
+  const target = state.document.nodes.find(({ id }) => id === connection.target.nodeId);
+  if (source === undefined || target === undefined) return;
+  designer.insertWaypoint(connection.id, {
+    x:
+      (source.transform.x +
+        source.transform.width / 2 +
+        target.transform.x +
+        target.transform.width / 2) /
+      2,
+    y:
+      (source.transform.y +
+        source.transform.height / 2 +
+        target.transform.y +
+        target.transform.height / 2) /
+      2
+  });
+});
+required<HTMLButtonElement>("#remove-waypoint").addEventListener("click", () => {
+  const state = designer.getState();
+  const connection = state.document.connections.find(({ id }) =>
+    state.selection.selectedConnectionIds.includes(id)
+  );
+  if (connection !== undefined && connection.waypoints.length > 0)
+    designer.removeWaypoint(connection.id, connection.waypoints.length - 1);
 });
 
 function resizeCanvas(): void {

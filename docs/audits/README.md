@@ -10,6 +10,8 @@ They are historical reports rather than normative specifications.
 - [Phase 2 hardening audit](phase-2-hardening-audit.md)
 - [Phase 3 audit](phase-3-audit.md)
 - [Phase 4 audit](phase-4-audit.md)
+- [Phase 5 audit](phase-5-audit.md)
+- [Phase 6 audit](phase-6-audit.md)
 - [Documentation migration report](documentation-migration-report.md)
 
 See also:

@@ -11,6 +11,10 @@ export default defineConfig({
       ).pathname,
       "@web-scada/renderer-svg": new URL("./packages/renderer-svg/src/index.ts", import.meta.url)
         .pathname,
+      "@web-scada/runtime-engine": new URL(
+        "./packages/runtime-engine/src/index.ts",
+        import.meta.url
+      ).pathname,
       "@web-scada/symbols": new URL("./packages/symbols/src/index.ts", import.meta.url).pathname
     }
   },

@@ -46,7 +46,11 @@ export class DesignerOverlay {
     for (const nodeId of state.selection.selectedNodeIds) {
       const node = state.document.nodes.find(({ id }) => id === nodeId);
       if (node === undefined) continue;
-      const { transform } = node;
+      const preview =
+        state.interaction.type === "rotate"
+          ? state.interaction.previewNodes.find(({ id }) => id === node.id)
+          : undefined;
+      const transform = preview?.transform ?? node.transform;
       const previewDelta =
         state.interaction.type === "drag"
           ? {
@@ -54,21 +58,29 @@ export class DesignerOverlay {
               y: state.interaction.current.y - state.interaction.origin.y
             }
           : { x: 0, y: 0 };
+      const displayTransform = {
+        ...transform,
+        x: transform.x + previewDelta.x,
+        y: transform.y + previewDelta.y
+      };
+      const centerX = displayTransform.x + displayTransform.width / 2;
+      const centerY = displayTransform.y + displayTransform.height / 2;
+      const selection = svg("g");
+      selection.setAttribute(
+        "transform",
+        `rotate(${String(displayTransform.rotation)} ${String(centerX)} ${String(centerY)})`
+      );
       const rectangle = svg("rect");
       rectangle.dataset.selectionNodeId = node.id;
-      rectangle.setAttribute("x", String(transform.x + previewDelta.x));
-      rectangle.setAttribute("y", String(transform.y + previewDelta.y));
-      rectangle.setAttribute("width", String(transform.width));
-      rectangle.setAttribute("height", String(transform.height));
+      rectangle.setAttribute("x", String(displayTransform.x));
+      rectangle.setAttribute("y", String(displayTransform.y));
+      rectangle.setAttribute("width", String(displayTransform.width));
+      rectangle.setAttribute("height", String(displayTransform.height));
       rectangle.setAttribute("class", "selection-outline");
-      viewport.append(rectangle);
+      selection.append(rectangle);
       if (state.selection.selectedNodeIds.length === 1) {
         for (const handle of HANDLES) {
-          const point = handlePoint(handle, {
-            ...transform,
-            x: transform.x + previewDelta.x,
-            y: transform.y + previewDelta.y
-          });
+          const point = handlePoint(handle, displayTransform);
           const circle = svg("circle");
           circle.dataset.resizeHandle = handle;
           circle.dataset.nodeId = node.id;
@@ -76,9 +88,46 @@ export class DesignerOverlay {
           circle.setAttribute("cy", String(point.y));
           circle.setAttribute("r", String(6 / state.viewport.zoom));
           circle.setAttribute("class", "resize-handle");
-          viewport.append(circle);
+          selection.append(circle);
         }
+        const handleY = displayTransform.y - 30 / state.viewport.zoom;
+        const stem = svg("line");
+        stem.setAttribute("x1", String(centerX));
+        stem.setAttribute("x2", String(centerX));
+        stem.setAttribute("y1", String(displayTransform.y));
+        stem.setAttribute("y2", String(handleY));
+        stem.setAttribute("class", "rotation-stem");
+        const rotation = svg("circle");
+        rotation.dataset.rotateHandle = "";
+        rotation.dataset.nodeId = node.id;
+        rotation.setAttribute("cx", String(centerX));
+        rotation.setAttribute("cy", String(handleY));
+        rotation.setAttribute("r", String(7 / state.viewport.zoom));
+        rotation.setAttribute("class", "rotation-handle");
+        selection.append(stem, rotation);
       }
+      viewport.append(selection);
+    }
+
+    for (const connectionId of state.selection.selectedConnectionIds) {
+      const connection = state.document.connections.find(({ id }) => id === connectionId);
+      if (connection === undefined) continue;
+      connection.waypoints.forEach((waypoint, index) => {
+        const preview =
+          state.interaction.type === "waypoint" &&
+          state.interaction.connectionId === connection.id &&
+          state.interaction.waypointIndex === index
+            ? state.interaction.current
+            : waypoint;
+        const handle = svg("circle");
+        handle.dataset.connectionId = connection.id;
+        handle.dataset.waypointIndex = String(index);
+        handle.setAttribute("cx", String(preview.x));
+        handle.setAttribute("cy", String(preview.y));
+        handle.setAttribute("r", String(6 / state.viewport.zoom));
+        handle.setAttribute("class", "waypoint-handle");
+        viewport.append(handle);
+      });
     }
 
     if (state.hover.entityType === "node" && state.hover.nodeId !== undefined) {
@@ -89,6 +138,10 @@ export class DesignerOverlay {
         hover.setAttribute("y", String(node.transform.y));
         hover.setAttribute("width", String(node.transform.width));
         hover.setAttribute("height", String(node.transform.height));
+        hover.setAttribute(
+          "transform",
+          `rotate(${String(node.transform.rotation)} ${String(node.transform.x + node.transform.width / 2)} ${String(node.transform.y + node.transform.height / 2)})`
+        );
         hover.setAttribute("class", "hover-outline");
         viewport.append(hover);
       }

@@ -1,47 +1,53 @@
-# Phase 05 — Editing
+# Phase 05 — Advanced Editing Engine
 
 ## Goal
 
-Add deterministic document editing workflows on top of immutable SCADA Core
-mutations.
+Provide precise, deterministic, command-driven editing on top of the Phase 4
+Designer without changing document or Renderer ownership.
 
 ## Scope
 
-Create, move, resize, rotate, connect, delete, duplicate, clipboard, snapping, and
-property-editing workflows.
+Rotation, parent-based grouping, alignment, equal-gap distribution, deterministic
+snap candidates, multi-selection transforms, locking, visibility, ordering,
+layer reassignment, waypoint editing, endpoint reassignment, keyboard nudge,
+group-aware clipboard operations, and cancelable interaction sessions.
 
 ## Deliverables
 
-Editing tools, command translation, previews, validation feedback, and designer
-integration.
+Pure Geometry algorithms, atomic Designer commands, public editing APIs,
+rotation overlay/demo controls, unit/integration/browser coverage, baseline,
+compatibility report, architecture documentation, and audit.
 
 ## Public APIs
 
-TODO: editing-session and tool contracts are not yet public. Existing Core commands
-and `ClipboardAdapter` are the only baseline.
+See [Designer API](../api/designer-api.md). Advanced operations extend
+`DesignerController`; `DesignerInteractionSession`, angle/route/layout geometry,
+and snap candidate helpers are exported.
 
 ## Dependencies
 
-Phase 04 Designer, Core mutation model, geometry, symbol ports, and Renderer
-incremental updates.
+Phase 4 Designer, Core validation and `parentId`, Geometry, Symbol Registry port
+metadata, Renderer incremental changes, and the existing snapshot history.
 
 ## Testing
 
-Gesture-to-command tests, mutation failure behavior, geometry snapping,
-connection validity, clipboard boundaries, and browser editing flows.
+Pure geometry, commands/history, lock and visibility policies, grouping and
+clipboard remap, connections, cancellation/disposal, demo typecheck/build, and
+Playwright editing flows.
 
 ## Definition of Done
 
-Each completed gesture commits a valid deterministic document change and preserves
-unrelated identity.
+Each committed operation is atomic, preserves document validity, produces a
+small change set, is undoable, and leaves transient sessions/guides outside the
+document.
 
 ## Exit Criteria
 
-Editing operations are accessible, validated, documented, and pass integration and
-browser suites.
+All workspace gates and applicable browser tests pass, with evidence recorded
+in the Phase 5 audit.
 
 See also:
 
-- [Mutation model](../architecture/mutation-model.md)
-- [Document mutations](../conventions/document-mutations.md)
-- [Phase 11 History](phase-11-history.md)
+- [Advanced Editing architecture](../architecture/advanced-editing-engine.md)
+- [Phase 5 audit](../audits/phase-5-audit.md)
+- [Phase 4 compatibility](../roadmap/phase-5-phase-4-compatibility.md)

@@ -222,6 +222,44 @@ describe("NativeSvgRenderer lifecycle and rendering", () => {
     });
   });
 
+  it("applies ephemeral runtime properties and visibility without replacing the document", () => {
+    let fill = "#ef4444";
+    let nodeVisible = true;
+    let connectionVisible = true;
+    const source = createRendererTestDocument();
+    const original = JSON.stringify(source);
+    const renderer = createSvgRenderer({
+      symbols: createExampleSymbolRegistry(),
+      runtimeState: {
+        getNodeState: () => "normal",
+        getNodeProperties: (nodeId) => (nodeId === "node_a" ? { fill } : undefined),
+        getNodeVisibility: (nodeId) => (nodeId === "node_a" ? nodeVisible : undefined),
+        getConnectionStyle: (connectionId) =>
+          connectionId === "conn_direct" ? { stroke: "#a855f7", strokeWidth: 9 } : undefined,
+        getConnectionVisibility: (connectionId) =>
+          connectionId === "conn_direct" ? connectionVisible : undefined
+      }
+    });
+    renderer.mount(createContainer());
+    renderer.renderDocument(source);
+    const nodeElement = renderer.getElementForNode("node_a");
+    const connectionElement = renderer.getElementForConnection("conn_direct");
+    expect(nodeElement?.querySelector("rect")?.getAttribute("fill")).toBe("#ef4444");
+    expect(connectionElement?.getAttribute("stroke")).toBe("#a855f7");
+    expect(connectionElement?.getAttribute("stroke-width")).toBe("9");
+
+    fill = "#22c55e";
+    nodeVisible = false;
+    connectionVisible = false;
+    renderer.refreshRuntimeStates(["node_a"], ["conn_direct"]);
+    expect(renderer.getElementForNode("node_a")).toBe(nodeElement);
+    expect(nodeElement?.querySelector("rect")?.getAttribute("fill")).toBe("#22c55e");
+    expect(nodeElement?.style.display).toBe("none");
+    expect(renderer.getElementForConnection("conn_direct")).toBe(connectionElement);
+    expect(connectionElement?.style.display).toBe("none");
+    expect(JSON.stringify(source)).toBe(original);
+  });
+
   it("namespaces definitions across renderer instances and coalesces frames", () => {
     const first = createSvgRenderer({ symbols: createExampleSymbolRegistry() });
     const second = createSvgRenderer({ symbols: createExampleSymbolRegistry() });

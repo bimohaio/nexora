@@ -17,6 +17,18 @@ The package also exports:
 - configurable `DEFAULT_KEYBOARD_SHORTCUTS` and `handleDesignerShortcut`;
 - pure selection, snapping, change-set, rectangle, and resize helpers.
 
+Phase 5 extends `DesignerController` with rotation, multi-resize, grouping,
+ungrouping, six alignment modes, horizontal/vertical distribution, nudge,
+locking, visibility, layer reassignment, waypoint insertion/move/removal, and
+endpoint reassignment. All methods synchronously commit one validated history
+entry or make no change.
+
+`DesignerInteractionSession<TInput, TPreview, TResult>` owns a cancelable gesture
+lifecycle. `rankSnapCandidates` and `documentSnapTolerance` provide
+renderer-neutral deterministic snapping. Geometry exports angle snapping,
+rotated bounds, shared-pivot rotation, alignment, distribution, route
+normalization, and segment projection.
+
 `DesignerRenderAdapter` is the only Renderer boundary. It receives a full
 document initially and incremental `DocumentChangeSet` values thereafter.
 Transient hover, marquee, handles, previews, and guides are not serialized.
@@ -24,8 +36,8 @@ Transient hover, marquee, handles, previews, and guides are not serialized.
 Clipboard methods are asynchronous. Callers should await `copy`, `cut`,
 `paste`, and `duplicate` when operation order matters.
 
-Future API additions remain TODO until their implementing phase; no group,
-alignment, or distribution API is claimed by this MVP.
+Persistent guides, arbitrary group pivots, drill-in selection, and mature
+history merging remain TODO.
 
 See also:
 

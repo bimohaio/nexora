@@ -6,7 +6,7 @@ import type {
   ScadaDocument,
   ScadaNode
 } from "@web-scada/core";
-import type { Point, Rectangle, Viewport } from "@web-scada/geometry";
+import type { Alignment, Point, Rectangle, Viewport } from "@web-scada/geometry";
 
 export interface SelectionState {
   readonly selectedNodeIds: readonly string[];
@@ -16,6 +16,8 @@ export interface SelectionState {
 export type DesignerToolId = "select" | "pan" | "rectangle" | "connection" | (string & {});
 export type ResizeHandle = "n" | "ne" | "e" | "se" | "s" | "sw" | "w" | "nw";
 export type HoverEntityType = "node" | "connection" | "port" | "handle";
+export type DistributionAxis = "horizontal" | "vertical";
+export type ConnectionEndpointName = "source" | "target";
 
 export interface HoverState {
   readonly entityType?: HoverEntityType | undefined;
@@ -56,6 +58,21 @@ export type DesignerInteraction =
       readonly sourceNodeId: string;
       readonly sourcePortId: string;
       readonly current: Point;
+    }
+  | {
+      readonly type: "rotate";
+      readonly origin: Point;
+      readonly current: Point;
+      readonly nodeIds: readonly string[];
+      readonly previewNodes: readonly ScadaNode[];
+      readonly angle: number;
+    }
+  | {
+      readonly type: "waypoint";
+      readonly connectionId: string;
+      readonly waypointIndex: number;
+      readonly origin: Point;
+      readonly current: Point;
     };
 
 export interface DesignerState {
@@ -80,6 +97,21 @@ export interface SnapOptions {
   readonly ports: boolean;
   readonly boundingBoxes: boolean;
   readonly threshold: number;
+}
+
+export type SnapCandidateType =
+  "guide" | "port" | "rotation" | "alignment" | "spacing" | "edge" | "center" | "grid" | "waypoint";
+
+export interface SnapCandidate {
+  readonly type: SnapCandidateType;
+  readonly axis?: "x" | "y" | "both" | "angle";
+  readonly sourceId?: string;
+  readonly targetId?: string;
+  readonly rawValue: number;
+  readonly snappedValue: number;
+  readonly distance: number;
+  readonly priority?: number;
+  readonly guide?: AlignmentGuide;
 }
 
 export interface DesignerOptions {
@@ -129,8 +161,27 @@ export interface DesignerController extends DesignerEngine {
   selectMarquee(bounds: Rectangle, mode?: SelectionMode): void;
   moveSelection(delta: Point): void;
   resizeNode(nodeId: string, handle: ResizeHandle, delta: Point): void;
+  resizeSelection(handle: ResizeHandle, delta: Point, preserveAspectRatio?: boolean): void;
+  rotateSelection(angleDelta: number, snap?: boolean): void;
+  alignSelection(alignment: Alignment, referenceNodeId?: string): void;
+  distributeSelection(axis: DistributionAxis): void;
+  groupSelection(): void;
+  ungroupSelection(): void;
+  nudgeSelection(delta: Point): void;
+  setSelectionLocked(locked: boolean): void;
+  setSelectionVisible(visible: boolean): void;
+  reassignSelectionToLayer(layerId: string): void;
   insertNode(node: ScadaNode): void;
   createConnection(connection: ScadaConnection): void;
+  insertWaypoint(connectionId: string, point: Point): void;
+  moveWaypoint(connectionId: string, waypointIndex: number, point: Point): void;
+  removeWaypoint(connectionId: string, waypointIndex: number): void;
+  reconnectEndpoint(
+    connectionId: string,
+    endpoint: ConnectionEndpointName,
+    nodeId: string,
+    portId: string
+  ): void;
   deleteSelection(): void;
   updateNode(nodeId: string, update: (node: ScadaNode) => ScadaNode): void;
   copy(): Promise<void>;
@@ -205,6 +256,18 @@ export type DesignerShortcutAction =
   | "duplicate"
   | "undo"
   | "redo"
+  | "group"
+  | "ungroup"
+  | "nudge-left"
+  | "nudge-right"
+  | "nudge-up"
+  | "nudge-down"
+  | "nudge-left-large"
+  | "nudge-right-large"
+  | "nudge-up-large"
+  | "nudge-down-large"
+  | "bring-forward"
+  | "send-backward"
   | "select-all"
   | "clear-selection"
   | "temporary-pan";

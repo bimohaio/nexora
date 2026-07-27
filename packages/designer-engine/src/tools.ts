@@ -24,13 +24,28 @@ export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcutMap = {
   "Meta+v": "paste",
   "Control+d": "duplicate",
   "Meta+d": "duplicate",
+  "Control+g": "group",
+  "Meta+g": "group",
+  "Control+Shift+g": "ungroup",
+  "Meta+Shift+g": "ungroup",
   "Control+z": "undo",
   "Meta+z": "undo",
   "Control+Shift+z": "redo",
   "Meta+Shift+z": "redo",
+  "Control+y": "redo",
   "Control+a": "select-all",
   "Meta+a": "select-all",
   Escape: "clear-selection",
+  ArrowLeft: "nudge-left",
+  ArrowRight: "nudge-right",
+  ArrowUp: "nudge-up",
+  ArrowDown: "nudge-down",
+  "Shift+ArrowLeft": "nudge-left-large",
+  "Shift+ArrowRight": "nudge-right-large",
+  "Shift+ArrowUp": "nudge-up-large",
+  "Shift+ArrowDown": "nudge-down-large",
+  "]": "bring-forward",
+  "[": "send-backward",
   " ": "temporary-pan"
 };
 
@@ -54,14 +69,43 @@ export function handleDesignerShortcut(
   else if (action === "cut") void designer.cut();
   else if (action === "paste") void designer.paste();
   else if (action === "duplicate") void designer.duplicate();
+  else if (action === "group") designer.groupSelection();
+  else if (action === "ungroup") designer.ungroupSelection();
   else if (action === "undo") designer.undo();
   else if (action === "redo") designer.redo();
   else if (action === "select-all") designer.selectAll();
+  else if (action === "nudge-left") designer.nudgeSelection({ x: -1, y: 0 });
+  else if (action === "nudge-right") designer.nudgeSelection({ x: 1, y: 0 });
+  else if (action === "nudge-up") designer.nudgeSelection({ x: 0, y: -1 });
+  else if (action === "nudge-down") designer.nudgeSelection({ x: 0, y: 1 });
+  else if (action === "nudge-left-large") designer.nudgeSelection({ x: -10, y: 0 });
+  else if (action === "nudge-right-large") designer.nudgeSelection({ x: 10, y: 0 });
+  else if (action === "nudge-up-large") designer.nudgeSelection({ x: 0, y: -10 });
+  else if (action === "nudge-down-large") designer.nudgeSelection({ x: 0, y: 10 });
+  else if (action === "bring-forward") designer.reorderSelection("forward");
+  else if (action === "send-backward") designer.reorderSelection("backward");
   else if (action === "clear-selection") {
     designer.setInteraction({ type: "idle" });
     designer.clearSelection();
   } else if (action === "temporary-pan") designer.setActiveTool("pan");
   return action;
+}
+
+export interface DesignerFocusTarget {
+  readonly tagName?: string;
+  readonly contentEditable?: boolean;
+  readonly shortcutGuard?: boolean;
+}
+
+export function isDesignerShortcutTarget(target: DesignerFocusTarget | undefined): boolean {
+  const tagName = target?.tagName?.toLowerCase();
+  return (
+    tagName === "input" ||
+    tagName === "textarea" ||
+    tagName === "select" ||
+    target?.contentEditable === true ||
+    target?.shortcutGuard === true
+  );
 }
 
 export class InMemoryToolRegistry implements ToolRegistry {
@@ -167,7 +211,11 @@ export class SelectTool extends BaseTool {
       (event.entityType === "node" || event.entityType === "port") &&
       event.nodeId !== undefined
     ) {
-      this.designer.selectNode(event.nodeId, mode);
+      const pointedNode = this.designer
+        .getState()
+        .document.nodes.find(({ id }) => id === event.nodeId);
+      const selectionTarget = pointedNode?.parentId ?? event.nodeId;
+      this.designer.selectNode(selectionTarget, mode);
       const selected = new Set(this.designer.getState().selection.selectedNodeIds);
       const originalNodes = this.designer
         .getState()

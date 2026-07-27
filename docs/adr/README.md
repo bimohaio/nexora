@@ -4,7 +4,7 @@ This folder preserves numbered architectural decisions and their original
 numbering. ADRs explain why durable choices were made; current normative rules
 are summarized by the master specification and detailed architecture documents.
 
-Contents: ADR 0001 through ADR 0020.
+Contents: ADR 0001 through ADR 0021.
 
 See also:
 

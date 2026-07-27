@@ -233,6 +233,31 @@ input {
   cursor: nwse-resize;
 }
 
+.rotation-stem {
+  stroke: #fbbf24;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+.rotation-handle {
+  fill: #fef3c7;
+  stroke: #f59e0b;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+  cursor: grab;
+}
+
+.waypoint-handle {
+  fill: #fbcfe8;
+  stroke: #db2777;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+  cursor: move;
+}
+
 .marquee {
   fill: rgb(56 189 248 / 12%);
   stroke: #38bdf8;
@@ -305,6 +330,29 @@ input {
   border-top: 1px solid #193249;
   color: #64748b;
   font-size: 0.72rem;
+}
+
+.advanced-actions {
+  display: grid;
+  gap: 0.7rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+}
+
+.advanced-actions label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.advanced-actions select {
+  min-width: 0;
+  padding: 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+  color: var(--text);
+  background: var(--panel-strong);
 }
 
 .shortcuts h3 {

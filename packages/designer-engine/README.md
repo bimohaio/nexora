@@ -3,6 +3,10 @@
 Phase 4 document-editing orchestration for Nexora. The package provides
 selection, pluggable tools, command history, clipboard operations, snapping,
 resize constraints, viewport control, ordering, and transient overlay state.
+Phase 5 adds rotation, parent-based groups, alignment/distribution,
+multi-selection transforms, locking/visibility, layer reassignment, connection
+waypoint editing, endpoint reassignment, deterministic snap ranking, keyboard
+nudge, and cancelable interaction sessions.
 
 Create an engine with `createDesignerEngine({ document, symbols, renderer })`.
 Register Select, Pan, Rectangle, Connection, or application-defined tools with

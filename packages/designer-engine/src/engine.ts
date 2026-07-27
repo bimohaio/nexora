@@ -10,6 +10,14 @@ import {
   type ScadaNode
 } from "@web-scada/core";
 import {
+  alignRectangles,
+  calculatePortPosition,
+  distributeRectangles,
+  normalizeRoute,
+  projectPointToSegment,
+  rectangleToBounds,
+  rotateTransforms,
+  rotatedBounds,
   unionBounds,
   viewportPointToCanvas,
   type Point,
@@ -21,6 +29,7 @@ import type { SymbolRegistry } from "@web-scada/symbols";
 import { deriveDocumentChangeSet } from "./change-set.js";
 import {
   DeleteEntitiesCommand,
+  AtomicDocumentCommand,
   InsertConnectionCommand,
   InsertFragmentCommand,
   InsertNodeCommand,
@@ -44,11 +53,14 @@ import type {
   DesignerStateListener,
   DesignerToolId,
   HoverState,
+  ConnectionEndpointName,
+  DistributionAxis,
   NodeOrderOperation,
   ResizeHandle,
   SelectionMode,
   SelectionState
 } from "./contracts.js";
+import type { Alignment } from "@web-scada/geometry";
 import { CommandHistory } from "./history.js";
 import {
   EMPTY_SELECTION,
@@ -268,14 +280,14 @@ export class NativeDesignerEngine implements DesignerController {
   }
 
   public moveSelection(delta: Point): void {
-    const nodes = this.#document.nodes.filter(({ id }) =>
-      this.#selection.selectedNodeIds.includes(id)
-    );
+    const nodes = this.#editableSelectedNodes(true);
+    const firstNode = nodes[0];
+    if (firstNode === undefined) return;
     const snapped = snapNodeDelta(this.#document, nodes, delta, this.#options.snap);
     this.setGuides(snapped.guides);
     this.execute(
       new MoveNodesCommand(
-        this.#selection.selectedNodeIds,
+        nodes.map(({ id }) => id),
         snapped.delta,
         this.#commandDependencies
       )
@@ -285,7 +297,7 @@ export class NativeDesignerEngine implements DesignerController {
 
   public resizeNode(nodeId: string, handle: ResizeHandle, delta: Point): void {
     const node = this.#document.nodes.find(({ id }) => id === nodeId);
-    if (node === undefined) return;
+    if (node === undefined || node.locked || !node.visible) return;
     const definition = this.#symbols.get(node.symbolType);
     const minimum = {
       width: definition?.minimumWidth ?? 10,
@@ -300,6 +312,225 @@ export class NativeDesignerEngine implements DesignerController {
     );
   }
 
+  public resizeSelection(handle: ResizeHandle, delta: Point, preserveAspectRatio = false): void {
+    const nodes = this.#editableSelectedNodes(true);
+    const firstNode = nodes[0];
+    if (firstNode === undefined) return;
+    const bounds = this.#nodeBounds(nodes);
+    if (bounds === undefined) return;
+    let target = resizeTransform(
+      {
+        ...firstNode,
+        transform: { ...firstNode.transform, ...bounds }
+      },
+      handle,
+      delta,
+      { width: 1, height: 1 }
+    );
+    if (preserveAspectRatio) {
+      const scale = Math.min(target.width / bounds.width, target.height / bounds.height);
+      target = { ...target, width: bounds.width * scale, height: bounds.height * scale };
+    }
+    const scaleX = target.width / bounds.width;
+    const scaleY = target.height / bounds.height;
+    const selected = new Set(nodes.map(({ id }) => id));
+    this.#executeAtomic("resize-node", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) =>
+        selected.has(node.id)
+          ? {
+              ...node,
+              transform: {
+                ...node.transform,
+                x: target.x + (node.transform.x - bounds.x) * scaleX,
+                y: target.y + (node.transform.y - bounds.y) * scaleY,
+                width: Math.max(
+                  this.#symbols.get(node.symbolType)?.minimumWidth ?? 1,
+                  node.transform.width * scaleX
+                ),
+                height: Math.max(
+                  this.#symbols.get(node.symbolType)?.minimumHeight ?? 1,
+                  node.transform.height * scaleY
+                )
+              }
+            }
+          : node
+      )
+    }));
+  }
+
+  public rotateSelection(angleDelta: number, snap = true): void {
+    const nodes = this.#editableSelectedNodes(true);
+    if (nodes.length === 0 || !Number.isFinite(angleDelta)) return;
+    const applied = snap ? Math.round(angleDelta / 15) * 15 : angleDelta;
+    const transforms = rotateTransforms(
+      nodes.map(({ transform }) => transform),
+      applied
+    );
+    const byId = new Map(nodes.map((node, index) => [node.id, transforms[index]]));
+    this.#executeAtomic("rotate-node", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) => {
+        const transform = byId.get(node.id);
+        return transform === undefined ? node : { ...node, transform };
+      })
+    }));
+  }
+
+  public alignSelection(alignment: Alignment, referenceNodeId?: string): void {
+    const nodes = this.#editableSelectedNodes(false);
+    if (nodes.length < 2) return;
+    const rectangles = nodes.map(({ transform }) => rotatedBounds(transform));
+    const referenceNode = nodes.find(({ id }) => id === referenceNodeId);
+    const positions = alignRectangles(
+      rectangles,
+      alignment,
+      referenceNode === undefined ? undefined : rotatedBounds(referenceNode.transform)
+    );
+    const deltas = new Map(
+      nodes.flatMap((node, index) => {
+        const rectangle = rectangles[index];
+        const position = positions[index];
+        return rectangle === undefined || position === undefined
+          ? []
+          : [[node.id, { x: position.x - rectangle.x, y: position.y - rectangle.y }] as const];
+      })
+    );
+    this.#transformPositions(deltas);
+  }
+
+  public distributeSelection(axis: DistributionAxis): void {
+    const nodes = this.#editableSelectedNodes(false);
+    if (nodes.length < 3) return;
+    const rectangles = nodes.map(({ transform }) => rotatedBounds(transform));
+    const result = distributeRectangles(rectangles, axis);
+    const deltas = new Map(
+      nodes.flatMap((node, index) => {
+        const rectangle = rectangles[index];
+        const position = result.positions[index];
+        return rectangle === undefined || position === undefined
+          ? []
+          : [[node.id, { x: position.x - rectangle.x, y: position.y - rectangle.y }] as const];
+      })
+    );
+    this.#transformPositions(deltas);
+  }
+
+  public groupSelection(): void {
+    const nodes = this.#editableSelectedNodes(false).filter(
+      ({ parentId }) => parentId === undefined
+    );
+    if (nodes.length < 2 || new Set(nodes.map(({ layerId }) => layerId)).size !== 1) return;
+    const parent = nodes[0];
+    if (parent === undefined) return;
+    const children = new Set(nodes.slice(1).map(({ id }) => id));
+    this.#executeAtomic("update-property", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) =>
+        node.id === parent.id
+          ? {
+              ...node,
+              metadata: { ...node.metadata, designerGroup: true }
+            }
+          : children.has(node.id)
+            ? { ...node, parentId: parent.id }
+            : node
+      )
+    }));
+    this.selectNode(parent.id);
+  }
+
+  public ungroupSelection(): void {
+    const groups = new Set(
+      this.#document.nodes
+        .filter(
+          ({ id, metadata }) =>
+            this.#selection.selectedNodeIds.includes(id) && metadata?.designerGroup === true
+        )
+        .map(({ id }) => id)
+    );
+    if (groups.size === 0) return;
+    const childIds = this.#document.nodes
+      .filter(({ parentId }) => parentId !== undefined && groups.has(parentId))
+      .map(({ id }) => id);
+    this.#executeAtomic("update-property", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) => {
+        if (groups.has(node.id)) {
+          const metadata = { ...node.metadata };
+          delete metadata.designerGroup;
+          return { ...node, metadata };
+        }
+        if (node.parentId !== undefined && groups.has(node.parentId)) {
+          const { parentId: _parentId, ...withoutParent } = node;
+          void _parentId;
+          return withoutParent;
+        }
+        return node;
+      })
+    }));
+    this.setSelection({
+      selectedNodeIds: [...groups, ...childIds],
+      selectedConnectionIds: []
+    });
+  }
+
+  public nudgeSelection(delta: Point): void {
+    this.moveSelection(delta);
+  }
+
+  public setSelectionLocked(locked: boolean): void {
+    const selectedNodes = new Set(this.#selection.selectedNodeIds);
+    const selectedConnections = new Set(this.#selection.selectedConnectionIds);
+    this.#executeAtomic("update-property", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) =>
+        selectedNodes.has(node.id) ? { ...node, locked } : node
+      ),
+      connections: document.connections.map((connection) =>
+        selectedConnections.has(connection.id) ? { ...connection, locked } : connection
+      )
+    }));
+  }
+
+  public setSelectionVisible(visible: boolean): void {
+    const selectedNodes = new Set(this.#selection.selectedNodeIds);
+    const selectedConnections = new Set(this.#selection.selectedConnectionIds);
+    this.#executeAtomic("update-property", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) =>
+        selectedNodes.has(node.id) ? { ...node, visible } : node
+      ),
+      connections: document.connections.map((connection) =>
+        selectedConnections.has(connection.id) ? { ...connection, visible } : connection
+      )
+    }));
+    if (!visible) this.clearSelection();
+  }
+
+  public reassignSelectionToLayer(layerId: string): void {
+    const target = this.#document.layers.find(({ id }) => id === layerId);
+    if (target === undefined || target.locked) return;
+    const selectedNodes = new Set(this.#editableSelectedNodes(true).map(({ id }) => id));
+    const selectedConnections = new Set(
+      this.#document.connections
+        .filter(
+          ({ id, locked, visible }) =>
+            this.#selection.selectedConnectionIds.includes(id) && !locked && visible
+        )
+        .map(({ id }) => id)
+    );
+    this.#executeAtomic("update-property", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) =>
+        selectedNodes.has(node.id) ? { ...node, layerId } : node
+      ),
+      connections: document.connections.map((connection) =>
+        selectedConnections.has(connection.id) ? { ...connection, layerId } : connection
+      )
+    }));
+  }
+
   public insertNode(node: ScadaNode): void {
     this.execute(new InsertNodeCommand(node, this.#commandDependencies));
     if (this.#document.nodes.some(({ id }) => id === node.id)) this.selectNode(node.id);
@@ -311,19 +542,83 @@ export class NativeDesignerEngine implements DesignerController {
       this.selectConnection(connection.id);
   }
 
+  public insertWaypoint(connectionId: string, point: Point): void {
+    const connection = this.#editableConnection(connectionId);
+    if (connection === undefined) return;
+    const endpoints = this.#connectionEndpoints(connection);
+    if (endpoints === undefined) return;
+    const route = [endpoints.source, ...connection.waypoints, endpoints.target];
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    let projected = point;
+    for (let index = 0; index < route.length - 1; index += 1) {
+      const start = route[index];
+      const end = route[index + 1];
+      if (start === undefined || end === undefined) continue;
+      const candidate = projectPointToSegment(point, start, end);
+      const distance = Math.hypot(candidate.x - point.x, candidate.y - point.y);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+        projected = candidate;
+      }
+    }
+    const waypoints = [...connection.waypoints];
+    waypoints.splice(bestIndex, 0, projected);
+    this.#updateConnection(connectionId, { ...connection, routing: "manual", waypoints });
+  }
+
+  public moveWaypoint(connectionId: string, waypointIndex: number, point: Point): void {
+    const connection = this.#editableConnection(connectionId);
+    if (connection?.waypoints[waypointIndex] === undefined) return;
+    const waypoints = connection.waypoints.map((waypoint, index) =>
+      index === waypointIndex ? point : waypoint
+    );
+    this.#updateConnection(connectionId, {
+      ...connection,
+      waypoints: normalizeRoute(waypoints)
+    });
+  }
+
+  public removeWaypoint(connectionId: string, waypointIndex: number): void {
+    const connection = this.#editableConnection(connectionId);
+    if (connection?.waypoints[waypointIndex] === undefined) return;
+    this.#updateConnection(connectionId, {
+      ...connection,
+      waypoints: connection.waypoints.filter((_waypoint, index) => index !== waypointIndex)
+    });
+  }
+
+  public reconnectEndpoint(
+    connectionId: string,
+    endpoint: ConnectionEndpointName,
+    nodeId: string,
+    portId: string
+  ): void {
+    const connection = this.#editableConnection(connectionId);
+    const node = this.#document.nodes.find(({ id }) => id === nodeId);
+    if (connection === undefined || node === undefined || node.locked || !node.visible) return;
+    this.#updateConnection(connectionId, {
+      ...connection,
+      [endpoint]: { nodeId, portId }
+    });
+  }
+
   public deleteSelection(): void {
     if (
       this.#selection.selectedNodeIds.length === 0 &&
       this.#selection.selectedConnectionIds.length === 0
     )
       return;
-    this.execute(
-      new DeleteEntitiesCommand(
-        this.#selection.selectedNodeIds,
-        this.#selection.selectedConnectionIds,
-        this.#commandDependencies
+    const nodeIds = this.#editableSelectedNodes(true).map(({ id }) => id);
+    const connectionIds = this.#document.connections
+      .filter(
+        ({ id, locked, visible }) =>
+          this.#selection.selectedConnectionIds.includes(id) && !locked && visible
       )
-    );
+      .map(({ id }) => id);
+    if (nodeIds.length === 0 && connectionIds.length === 0) return;
+    this.execute(new DeleteEntitiesCommand(nodeIds, connectionIds, this.#commandDependencies));
     this.clearSelection();
   }
 
@@ -333,6 +628,8 @@ export class NativeDesignerEngine implements DesignerController {
 
   public async copy(): Promise<void> {
     const selected = new Set(this.#selection.selectedNodeIds);
+    for (const node of this.#document.nodes)
+      if (node.parentId !== undefined && selected.has(node.parentId)) selected.add(node.id);
     const fragment: DesignerClipboardFragment = {
       version: 1,
       nodes: this.#document.nodes.filter(({ id }) => selected.has(id)),
@@ -354,11 +651,14 @@ export class NativeDesignerEngine implements DesignerController {
     const idMap = new Map<string, string>();
     const layerId = this.#document.layers[0]?.id;
     if (layerId === undefined) return;
+    for (const node of fragment.nodes) idMap.set(node.id, this.#ids.createNodeId());
     const nodes = fragment.nodes.map((node) => {
-      const id = this.#ids.createNodeId();
-      idMap.set(node.id, id);
+      const { parentId: sourceParentId, ...nodeWithoutParent } = node;
+      const id = idMap.get(node.id);
+      if (id === undefined) throw new Error(`Clipboard ID mapping missing: ${node.id}`);
+      const parentId = sourceParentId === undefined ? undefined : idMap.get(sourceParentId);
       return {
-        ...node,
+        ...nodeWithoutParent,
         id,
         name: `${node.name} copy`,
         layerId: this.#document.layers.some(({ id: candidate }) => candidate === node.layerId)
@@ -368,7 +668,8 @@ export class NativeDesignerEngine implements DesignerController {
           ...node.transform,
           x: node.transform.x + this.#options.pasteOffset.x,
           y: node.transform.y + this.#options.pasteOffset.y
-        }
+        },
+        ...(parentId === undefined ? {} : { parentId })
       };
     });
     const connections = fragment.connections.flatMap((connection) => {
@@ -394,9 +695,9 @@ export class NativeDesignerEngine implements DesignerController {
   }
 
   public reorderSelection(operation: NodeOrderOperation): void {
-    this.execute(
-      new ReorderNodesCommand(this.#selection.selectedNodeIds, operation, this.#commandDependencies)
-    );
+    const ids = this.#editableSelectedNodes(false).map(({ id }) => id);
+    if (ids.length === 0) return;
+    this.execute(new ReorderNodesCommand(ids, operation, this.#commandDependencies));
   }
 
   public setViewport(viewport: Viewport): void {
@@ -493,6 +794,87 @@ export class NativeDesignerEngine implements DesignerController {
     for (const listener of this.#domainListeners) listener(event);
     this.#emitState("document-changed", changes);
     this.#emitState("history-changed");
+  }
+
+  #executeAtomic(
+    type: Command["type"],
+    operation: (document: ScadaDocument) => ScadaDocument
+  ): void {
+    this.execute(new AtomicDocumentCommand(type, operation, this.#commandDependencies));
+  }
+
+  #editableSelectedNodes(includeGroupChildren: boolean): readonly ScadaNode[] {
+    const selected = new Set(this.#selection.selectedNodeIds);
+    if (includeGroupChildren)
+      for (const node of this.#document.nodes)
+        if (node.parentId !== undefined && selected.has(node.parentId)) selected.add(node.id);
+    return this.#document.nodes.filter(
+      ({ id, locked, visible }) => selected.has(id) && !locked && visible
+    );
+  }
+
+  #nodeBounds(nodes: readonly ScadaNode[]): Rectangle | undefined {
+    const bounds = unionBounds(
+      ...nodes.map(({ transform }) => rectangleToBounds(rotatedBounds(transform)))
+    );
+    return bounds === undefined
+      ? undefined
+      : {
+          x: bounds.left,
+          y: bounds.top,
+          width: bounds.right - bounds.left,
+          height: bounds.bottom - bounds.top
+        };
+  }
+
+  #transformPositions(deltas: ReadonlyMap<string, Point>): void {
+    this.#executeAtomic("move-node", (document) => ({
+      ...document,
+      nodes: document.nodes.map((node) => {
+        const delta = deltas.get(node.id);
+        return delta === undefined
+          ? node
+          : {
+              ...node,
+              transform: {
+                ...node.transform,
+                x: node.transform.x + delta.x,
+                y: node.transform.y + delta.y
+              }
+            };
+      })
+    }));
+  }
+
+  #editableConnection(connectionId: string): ScadaConnection | undefined {
+    return this.#document.connections.find(
+      ({ id, locked, visible }) => id === connectionId && !locked && visible
+    );
+  }
+
+  #updateConnection(connectionId: string, replacement: ScadaConnection): void {
+    this.#executeAtomic("update-property", (document) => ({
+      ...document,
+      connections: document.connections.map((connection) =>
+        connection.id === connectionId ? replacement : connection
+      )
+    }));
+  }
+
+  #connectionEndpoints(
+    connection: ScadaConnection
+  ): { readonly source: Point; readonly target: Point } | undefined {
+    const resolve = (nodeId: string, portId: string): Point | undefined => {
+      const node = this.#document.nodes.find(({ id }) => id === nodeId);
+      const definition = node === undefined ? undefined : this.#symbols.get(node.symbolType);
+      const port = definition?.ports.find(({ id }) => id === portId);
+      return node === undefined || port === undefined
+        ? undefined
+        : calculatePortPosition(node.transform, port.position);
+    };
+    const source = resolve(connection.source.nodeId, connection.source.portId);
+    const target = resolve(connection.target.nodeId, connection.target.portId);
+    return source === undefined || target === undefined ? undefined : { source, target };
   }
 
   #emitState(type: DesignerStateEvent["type"], changes?: DesignerStateEvent["changes"]): void {

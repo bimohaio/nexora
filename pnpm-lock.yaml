@@ -116,9 +116,6 @@ importers:
       '@web-scada/geometry':
         specifier: workspace:*
         version: link:../geometry
-      '@web-scada/renderer-svg':
-        specifier: workspace:*
-        version: link:../renderer-svg
       '@web-scada/symbols':
         specifier: workspace:*
         version: link:../symbols
@@ -142,9 +139,6 @@ importers:
       '@web-scada/core':
         specifier: workspace:*
         version: link:../core
-      '@web-scada/renderer-svg':
-        specifier: workspace:*
-        version: link:../renderer-svg
       '@web-scada/symbols':
         specifier: workspace:*
         version: link:../symbols

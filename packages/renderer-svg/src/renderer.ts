@@ -408,11 +408,19 @@ export class NativeSvgRenderer implements SvgRenderer {
     }
   }
 
-  public refreshRuntimeStates(nodeIds?: readonly string[]): void {
+  public refreshRuntimeStates(
+    nodeIds?: readonly string[],
+    connectionIds?: readonly string[]
+  ): void {
     if (this.#document === undefined) return;
-    const requested = nodeIds === undefined ? undefined : new Set(nodeIds);
-    for (const node of this.#document.nodes)
-      if (requested === undefined || requested.has(node.id)) this.#renderNode(node);
+    const requestedNodes = nodeIds === undefined ? undefined : new Set(nodeIds);
+    const requestedConnections = connectionIds === undefined ? undefined : new Set(connectionIds);
+    for (const node of this.#document.nodes) {
+      if (requestedNodes === undefined || requestedNodes.has(node.id)) this.#renderNode(node);
+    }
+    if (connectionIds !== undefined)
+      for (const connection of this.#document.connections)
+        if (requestedConnections?.has(connection.id)) this.#renderConnection(connection);
   }
 
   public getViewport(): Viewport {
@@ -603,30 +611,42 @@ export class NativeSvgRenderer implements SvgRenderer {
 
   #renderNode(node: ScadaNode): void {
     if (this.#document === undefined) return;
-    const layer = this.#layerElements.get(node.layerId);
+    const runtimeProperties = this.#runtimeState?.getNodeProperties?.(node.id);
+    const runtimeVisibility = this.#runtimeState?.getNodeVisibility?.(node.id);
+    const resolvedNode: ScadaNode = {
+      ...node,
+      properties:
+        runtimeProperties === undefined
+          ? node.properties
+          : { ...node.properties, ...runtimeProperties },
+      visible: runtimeVisibility ?? node.visible
+    };
+    const layer = this.#layerElements.get(resolvedNode.layerId);
     if (layer === undefined) return;
-    let group = this.#nodeElements.get(node.id);
+    let group = this.#nodeElements.get(resolvedNode.id);
     if (group === undefined) {
       group = createSvgElement("g");
-      this.#nodeElements.set(node.id, group);
+      this.#nodeElements.set(resolvedNode.id, group);
     }
     if (group.parentNode !== layer.nodes) layer.nodes.append(group);
     setDataAttributes(group, {
       entityType: "node",
-      entityId: node.id,
-      nodeId: node.id,
-      layerId: node.layerId,
-      symbolType: node.symbolType,
-      visible: String(node.visible),
-      locked: String(node.locked)
+      entityId: resolvedNode.id,
+      nodeId: resolvedNode.id,
+      layerId: resolvedNode.layerId,
+      symbolType: resolvedNode.symbolType,
+      visible: String(resolvedNode.visible),
+      locked: String(resolvedNode.locked)
     });
-    group.setAttribute("transform", createNodeTransform(node.transform));
-    group.style.display = node.visible ? "" : "none";
-    group.style.pointerEvents = this.#options.enablePointerEvents && !node.locked ? "" : "none";
-    if (this.#options.showLockedState && node.locked) group.classList.add("scada-entity-locked");
+    group.setAttribute("transform", createNodeTransform(resolvedNode.transform));
+    group.style.display = resolvedNode.visible ? "" : "none";
+    group.style.pointerEvents =
+      this.#options.enablePointerEvents && !resolvedNode.locked ? "" : "none";
+    if (this.#options.showLockedState && resolvedNode.locked)
+      group.classList.add("scada-entity-locked");
     else group.classList.remove("scada-entity-locked");
 
-    const state = this.#runtimeState?.getNodeState(node.id) ?? "normal";
+    const state = this.#runtimeState?.getNodeState(resolvedNode.id) ?? "normal";
     group.classList.remove(
       "scada-state-normal",
       "scada-state-active",
@@ -639,22 +659,34 @@ export class NativeSvgRenderer implements SvgRenderer {
       "scada-state-disabled"
     );
     group.classList.add(runtimeStateClass(state));
-    const context: SvgSymbolRenderContext = { document: this.#document, node, state };
-    const metadata = this.#symbols.get(node.symbolType);
+    const context: SvgSymbolRenderContext = {
+      document: this.#document,
+      node: resolvedNode,
+      state
+    };
+    const metadata = this.#symbols.get(resolvedNode.symbolType);
     if (metadata === undefined) {
-      this.#emit("symbol-metadata-missing", { nodeId: node.id }, { symbolType: node.symbolType });
+      this.#emit(
+        "symbol-metadata-missing",
+        { nodeId: resolvedNode.id },
+        { symbolType: resolvedNode.symbolType }
+      );
       this.#logger?.warn("Symbol metadata not found.", {
-        nodeId: node.id,
-        symbolType: node.symbolType
+        nodeId: resolvedNode.id,
+        symbolType: resolvedNode.symbolType
       });
     }
-    const visualType = metadata?.type ?? node.symbolType;
+    const visualType = metadata?.type ?? resolvedNode.symbolType;
     const renderer = this.#symbolRenderers.get(visualType);
     if (renderer === undefined) {
-      this.#emit("symbol-renderer-missing", { nodeId: node.id }, { symbolType: node.symbolType });
+      this.#emit(
+        "symbol-renderer-missing",
+        { nodeId: resolvedNode.id },
+        { symbolType: resolvedNode.symbolType }
+      );
       this.#logger?.warn("Symbol renderer not found.", {
-        nodeId: node.id,
-        symbolType: node.symbolType
+        nodeId: resolvedNode.id,
+        symbolType: resolvedNode.symbolType
       });
     }
     const rendererKey = renderer === undefined ? "__fallback__" : visualType;
@@ -675,9 +707,9 @@ export class NativeSvgRenderer implements SvgRenderer {
       title = createSvgElement("title");
       group.prepend(title);
     }
-    title.textContent = node.name;
-    this.#renderPorts(node, layer.ports);
-    this.#renderDebugBounds(node);
+    title.textContent = resolvedNode.name;
+    this.#renderPorts(resolvedNode, layer.ports);
+    this.#renderDebugBounds(resolvedNode);
   }
 
   #renderPorts(node: ScadaNode, container: SVGGElement): void {
@@ -724,25 +756,33 @@ export class NativeSvgRenderer implements SvgRenderer {
 
   #renderConnection(connection: ScadaConnection): void {
     if (this.#document === undefined) return;
-    const layer = this.#layerElements.get(connection.layerId);
+    const runtimeStyle = this.#runtimeState?.getConnectionStyle?.(connection.id);
+    const runtimeVisibility = this.#runtimeState?.getConnectionVisibility?.(connection.id);
+    const resolvedConnection: ScadaConnection = {
+      ...connection,
+      style:
+        runtimeStyle === undefined ? connection.style : { ...connection.style, ...runtimeStyle },
+      visible: runtimeVisibility ?? connection.visible
+    };
+    const layer = this.#layerElements.get(resolvedConnection.layerId);
     if (layer === undefined) return;
-    const points = this.#resolveConnection(connection);
+    const points = this.#resolveConnection(resolvedConnection);
     const pathData = points === undefined ? "" : createPathData(points);
-    let path = this.#connectionElements.get(connection.id);
+    let path = this.#connectionElements.get(resolvedConnection.id);
     if (path === undefined) {
       path = createSvgElement("path");
-      this.#connectionElements.set(connection.id, path);
+      this.#connectionElements.set(resolvedConnection.id, path);
     }
     if (path.parentNode !== layer.connections) layer.connections.append(path);
-    this.#styleConnectionPath(path, connection, pathData, false);
+    this.#styleConnectionPath(path, resolvedConnection, pathData, false);
 
-    let hitArea = this.#connectionHitElements.get(connection.id);
+    let hitArea = this.#connectionHitElements.get(resolvedConnection.id);
     if (hitArea === undefined) {
       hitArea = createSvgElement("path");
-      this.#connectionHitElements.set(connection.id, hitArea);
+      this.#connectionHitElements.set(resolvedConnection.id, hitArea);
     }
     if (hitArea.parentNode !== layer.connections) layer.connections.append(hitArea);
-    this.#styleConnectionPath(hitArea, connection, pathData, true);
+    this.#styleConnectionPath(hitArea, resolvedConnection, pathData, true);
   }
 
   #styleConnectionPath(

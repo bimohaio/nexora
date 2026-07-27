@@ -17,7 +17,11 @@ renderer.renderChanges(nextDocument, changes);
 renderer.dispose();
 ```
 
-The API supports lifecycle, full and incremental render, animation-frame scheduling, resize, viewport/zoom/pan/fit/reset, runtime-state refresh, typed options/events/errors, and entity element lookup.
+The API supports lifecycle, full and incremental render, animation-frame
+scheduling, resize, viewport/zoom/pan/fit/reset, targeted runtime-state refresh
+for nodes and connections, typed options/events/errors, and entity element
+lookup. Runtime readers may provide ephemeral node state, properties,
+visibility, and connection style without mutating the document.
 
 Layer strategy A owns connections, nodes, and ports per layer. Entity maps preserve unchanged outer SVG elements. SVG-specific symbol adapters are injected separately from generic metadata. Definition IDs are namespaced per renderer instance.
 

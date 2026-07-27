@@ -10,6 +10,12 @@ should continue with [rendering architecture](rendering-architecture.md).
 Designer readers should start with
 [designer architecture](designer-architecture.md), then follow its tool,
 selection, command, and overlay lifecycle links.
+Phase 5 precision editing is documented in
+[Advanced Editing Engine](advanced-editing-engine.md).
+Runtime orchestration is documented in
+[Runtime Engine](runtime-engine.md).
+Detailed Phase 6 value and lifecycle contracts are indexed in
+[Runtime documentation](../runtime/README.md).
 
 See also:
 

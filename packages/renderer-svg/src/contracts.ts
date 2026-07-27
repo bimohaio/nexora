@@ -68,6 +68,12 @@ export type RendererEventListener = (event: RendererEvent) => void;
 
 export interface RuntimeVisualStateReader {
   getNodeState(nodeId: string): SymbolState | undefined;
+  getNodeProperties?(nodeId: string): Readonly<Record<string, JsonValue>> | undefined;
+  getNodeVisibility?(nodeId: string): boolean | undefined;
+  getConnectionStyle?(
+    connectionId: string
+  ): Partial<ScadaDocument["connections"][number]["style"]> | undefined;
+  getConnectionVisibility?(connectionId: string): boolean | undefined;
 }
 
 export interface RendererLogger {
@@ -117,7 +123,7 @@ export interface SvgRenderer {
   resetViewport(): void;
   resize(size: Size): void;
   setOptions(options: Partial<RendererOptions>): void;
-  refreshRuntimeStates(nodeIds?: readonly string[]): void;
+  refreshRuntimeStates(nodeIds?: readonly string[], connectionIds?: readonly string[]): void;
   getViewport(): Viewport;
   getElementForNode(nodeId: string): SVGGElement | undefined;
   getElementForConnection(connectionId: string): SVGPathElement | undefined;

@@ -2,9 +2,11 @@
 
 A framework-independent TypeScript domain engine for long-lived industrial graphics, HMI, P&ID, BMS, electrical, water-treatment, dashboard, and digital-twin applications.
 
-## Phase 2 status
+## Phase 6 status
 
-Phase 1 provides the Node-compatible SCADA Core Engine, and Phase 2 adds a production-quality native SVG viewer:
+The repository includes the Core, native SVG renderer, industrial symbol
+library, Designer editing engine, advanced editing, and provider-neutral Runtime
+Engine:
 
 - Versioned `ScadaDocument` v1 model and JSON-safe extensions
 - Document factory, defaults, normalization, ULID-based IDs, and injected clocks
@@ -20,10 +22,10 @@ Phase 1 provides the Node-compatible SCADA Core Engine, and Phase 2 adds a produ
 - Transform-aware ports, connection hit areas, markers, and medium classes
 - Programmatic zoom, anchor zoom, pan, resize, reset, and fit-to-view
 - Stable entity maps, incremental change sets, and animation-frame coalescing
-- Runtime visual-state adapter and typed pointer metadata
-- Responsive water-treatment runtime viewer with Playwright coverage
-
-There is no Designer editing UI yet.
+- Provider lifecycle, tag store, batching, quality, freshness, and reconnect
+- Ephemeral resolved node/connection state with targeted SVG refresh
+- Designer selection, transforms, history, grouping, snapping, and connection editing
+- Runtime and Designer demos with Playwright coverage
 
 ## Document example
 
@@ -106,7 +108,21 @@ pnpm test
 pnpm build
 ```
 
-`pnpm dev` starts the non-visual designer-core preview. `pnpm dev:runtime` starts the Phase 2 water-treatment SVG viewer.
+`pnpm dev` starts the Designer. `pnpm dev:runtime` starts the Phase 6
+water-treatment runtime viewer.
+
+## Runtime Engine
+
+```ts
+const runtime = createRuntimeEngine({ document, provider });
+runtime.subscribe((event) => {
+  if (event.type === "values")
+    renderer.refreshRuntimeStates(event.affected.nodeIds, event.affected.connectionIds);
+});
+await runtime.start();
+```
+
+Runtime values are ephemeral and never overwrite persisted document properties.
 
 ## SVG renderer
 
@@ -129,8 +145,11 @@ Viewport semantics are `screen = canvas × zoom + translation`. The renderer con
 
 ## Current limitations
 
-Deferred: selection, dragging, resizing, rotation handles, connection editing, obstacle avoidance, history management, production Web Components, binding evaluation, protocols, alarms, persistence, authentication, collaboration, and backend services.
+Deferred: expression binding, production protocol adapters, alarm and historian
+engines, animation scheduling, obstacle-avoiding routing, production Web
+Components, persistence, authentication, collaboration, and backend services.
 
 ## Next milestone
 
-The next milestone should expand the industrial symbol library (Phase 3) before the Designer MVP (Phase 4), so designer tools can target stable, representative metadata and visuals.
+The next planned milestone is Phase 7 interaction and accessibility hardening,
+followed by Phase 8 expression binding.

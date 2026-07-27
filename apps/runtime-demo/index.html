@@ -9,8 +9,8 @@
     <main class="shell">
       <header>
         <div>
-          <span class="eyebrow">PHASE 2 · SVG RENDERER</span>
-          <h1>Water Treatment Viewer</h1>
+          <span class="eyebrow">PHASE 6 · RUNTIME ENGINE</span>
+          <h1>Water Treatment Runtime</h1>
         </div>
         <div class="controls" aria-label="Viewer controls">
           <button id="grid-toggle" type="button">Grid</button>
@@ -19,13 +19,24 @@
           <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
           <button id="reset" type="button">Reset</button>
           <button id="fit" type="button">Fit</button>
-          <button id="state-toggle" type="button">Pump state</button>
+          <button id="state-toggle" type="button">Toggle alarm</button>
+          <button id="quality-toggle" type="button">Toggle quality</button>
+          <button id="pause-toggle" type="button">Pause</button>
+          <button id="runtime-reset" type="button">Reset runtime</button>
+          <button id="connection-toggle" type="button">Disconnect</button>
         </div>
       </header>
       <section id="viewer" aria-label="SCADA process viewer"></section>
       <footer>
-        <output id="viewport-status">x 0 · y 0 · 100%</output>
-        <span>Drag the background to pan</span>
+        <div class="runtime-summary">
+          <output id="runtime-status">IDLE</output>
+          <output id="tag-status">0 / 0 tags · revision 0</output>
+          <output id="diagnostic-status">No diagnostics</output>
+        </div>
+        <div>
+          <output id="viewport-status">x 0 · y 0 · 100%</output>
+          <span> · Drag the background to pan</span>
+        </div>
       </footer>
     </main>
     <script type="module" src="/src/main.ts"></script>

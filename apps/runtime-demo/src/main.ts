@@ -3,9 +3,11 @@ import {
   resolveEntityMetadata,
   type RendererEvent
 } from "@web-scada/renderer-svg";
-import { createExampleSymbolRegistry, type SymbolState } from "@web-scada/symbols";
+import { createRuntimeEngine, type RuntimeEngineEvent } from "@web-scada/runtime-engine";
+import { createExampleSymbolRegistry } from "@web-scada/symbols";
 
 import { WATER_TREATMENT_DOCUMENT } from "./sample-document.js";
+import { SimulatedProcessProvider } from "./simulated-provider.js";
 import "./style.css";
 
 function requiredElement(selector: string): HTMLElement {
@@ -24,13 +26,17 @@ const viewer = requiredElement("#viewer");
 const viewportStatusElement = document.querySelector<HTMLOutputElement>("#viewport-status");
 if (viewportStatusElement === null) throw new Error("Viewport status output not found.");
 const viewportStatus: HTMLOutputElement = viewportStatusElement;
-let pumpState: SymbolState = "running";
+const runtimeStatus = requiredElement("#runtime-status");
+const tagStatus = requiredElement("#tag-status");
+const diagnosticStatus = requiredElement("#diagnostic-status");
 let showGrid = true;
 let showPorts = true;
-const runtimeStates = new Map<string, SymbolState>([
-  ["node_pump", pumpState],
-  ["node_indicator", "running"]
-]);
+const provider = new SimulatedProcessProvider();
+const runtime = createRuntimeEngine({
+  document: WATER_TREATMENT_DOCUMENT,
+  provider,
+  reconnect: { initialDelayMs: 500, maximumDelayMs: 4000 }
+});
 
 function updateViewportStatus(event?: RendererEvent): void {
   if (event !== undefined && event.type !== "viewport-changed") return;
@@ -40,9 +46,7 @@ function updateViewportStatus(event?: RendererEvent): void {
 
 const renderer = createSvgRenderer({
   symbols: createExampleSymbolRegistry(),
-  runtimeState: {
-    getNodeState: (nodeId) => runtimeStates.get(nodeId)
-  },
+  runtimeState: runtime.visualState,
   onEvent: updateViewportStatus,
   options: {
     showGrid,
@@ -57,6 +61,26 @@ renderer.mount(viewer);
 renderer.renderDocument(WATER_TREATMENT_DOCUMENT);
 renderer.fitToView(40);
 updateViewportStatus();
+
+function updateRuntimeStatus(event?: RuntimeEngineEvent): void {
+  const snapshot = runtime.getSnapshot();
+  runtimeStatus.textContent = snapshot.status.toUpperCase();
+  runtimeStatus.dataset.status = snapshot.status;
+  tagStatus.textContent = `${String(snapshot.valueCount)} / ${String(snapshot.subscribedTagIds.length)} tags · revision ${String(snapshot.runtimeRevision)}`;
+  const lastDiagnostic = snapshot.diagnostics.at(-1);
+  diagnosticStatus.textContent =
+    lastDiagnostic === undefined
+      ? "No diagnostics"
+      : `${lastDiagnostic.code}: ${lastDiagnostic.message}`;
+  if (event?.type === "values")
+    renderer.refreshRuntimeStates(event.affected.nodeIds, event.affected.connectionIds);
+}
+
+const unsubscribeRuntime = runtime.subscribe(updateRuntimeStatus);
+updateRuntimeStatus();
+void runtime.start().catch(() => {
+  updateRuntimeStatus();
+});
 
 requiredButton("#grid-toggle").addEventListener("click", () => {
   showGrid = !showGrid;
@@ -79,9 +103,26 @@ requiredButton("#fit").addEventListener("click", () => {
   renderer.fitToView(40);
 });
 requiredButton("#state-toggle").addEventListener("click", () => {
-  pumpState = pumpState === "running" ? "alarm" : "running";
-  runtimeStates.set("node_pump", pumpState);
-  renderer.refreshRuntimeStates(["node_pump"]);
+  provider.setAlarm(!provider.alarm);
+});
+requiredButton("#connection-toggle").addEventListener("click", () => {
+  provider.setAvailable(!provider.available);
+  if (provider.available) void runtime.start();
+  requiredButton("#connection-toggle").textContent = provider.available
+    ? "Disconnect"
+    : "Reconnect";
+});
+let uncertain = false;
+requiredButton("#quality-toggle").addEventListener("click", () => {
+  uncertain = !uncertain;
+  provider.setQuality(uncertain ? "uncertain" : "good");
+});
+requiredButton("#pause-toggle").addEventListener("click", () => {
+  provider.setPaused(!provider.paused);
+  requiredButton("#pause-toggle").textContent = provider.paused ? "Resume" : "Pause";
+});
+requiredButton("#runtime-reset").addEventListener("click", () => {
+  runtime.clear();
 });
 
 let pointerId: number | undefined;
@@ -114,5 +155,7 @@ const observer = new ResizeObserver(([entry]) => {
 observer.observe(viewer);
 window.addEventListener("beforeunload", () => {
   observer.disconnect();
+  unsubscribeRuntime();
+  void runtime.dispose();
   renderer.dispose();
 });

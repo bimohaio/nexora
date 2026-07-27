@@ -9,14 +9,15 @@ const node = (
   width: number,
   height: number,
   properties: ScadaNode["properties"] = {},
-  layerId = "layer_process"
+  layerId = "layer_process",
+  bindings: readonly string[] = []
 ): ScadaNode => ({
   id,
   name,
   symbolType,
   transform: { x, y, width, height, rotation: 0, scaleX: 1, scaleY: 1 },
   properties,
-  bindings: [],
+  bindings,
   layerId,
   visible: true,
   locked: id === "node_motor"
@@ -53,13 +54,35 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
       fontSize: 28,
       fill: "#e2e8f0"
     }),
-    node("node_tank", "Raw Water Tank", "equipment.tank", 100, 230, 170, 300, {
-      fill: "#0f4c5c",
-      level: 0.68
-    }),
-    node("node_pump", "Feed Pump", "equipment.pump", 390, 330, 130, 100, {
-      fill: "#2563eb"
-    }),
+    node(
+      "node_tank",
+      "Raw Water Tank",
+      "equipment.tank",
+      100,
+      230,
+      170,
+      300,
+      {
+        fill: "#0f4c5c",
+        level: 0.68
+      },
+      "layer_process",
+      ["binding_tank_level"]
+    ),
+    node(
+      "node_pump",
+      "Feed Pump",
+      "equipment.pump",
+      390,
+      330,
+      130,
+      100,
+      {
+        fill: "#2563eb"
+      },
+      "layer_process",
+      ["binding_pump_state"]
+    ),
     node("node_valve", "Control Valve", "equipment.valve", 660, 345, 100, 75, {
       fill: "#0f766e"
     }),
@@ -69,9 +92,20 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
     node("node_motor", "Pump Motor", "equipment.motor", 380, 580, 140, 100, {
       fill: "#475569"
     }),
-    node("node_indicator", "Status Lamp", "equipment.indicator", 1120, 180, 64, 64, {
-      fill: "#22c55e"
-    }),
+    node(
+      "node_indicator",
+      "Status Lamp",
+      "equipment.indicator",
+      1120,
+      180,
+      64,
+      64,
+      {
+        fill: "#22c55e"
+      },
+      "layer_process",
+      ["binding_indicator_state"]
+    ),
     node(
       "node_boundary",
       "Treatment Boundary",
@@ -137,7 +171,44 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
     }
   ],
   variables: [],
-  bindings: [],
+  bindings: [
+    {
+      id: "binding_tank_level",
+      source: { type: "tag", tagId: "process.tank.level" },
+      target: { type: "node-property", nodeId: "node_tank", property: "level" },
+      mode: "one-way",
+      fallback: 0,
+      enabled: true
+    },
+    {
+      id: "binding_pump_state",
+      source: { type: "tag", tagId: "process.pump.state" },
+      target: { type: "node-state", nodeId: "node_pump" },
+      mode: "one-way",
+      fallback: "offline",
+      enabled: true
+    },
+    {
+      id: "binding_indicator_state",
+      source: { type: "tag", tagId: "process.indicator.state" },
+      target: { type: "node-state", nodeId: "node_indicator" },
+      mode: "one-way",
+      fallback: "offline",
+      enabled: true
+    },
+    {
+      id: "binding_flow_color",
+      source: { type: "tag", tagId: "process.pipe.color" },
+      target: {
+        type: "connection-property",
+        connectionId: "conn_pump_valve",
+        property: "stroke"
+      },
+      mode: "one-way",
+      fallback: "#94a3b8",
+      enabled: true
+    }
+  ],
   runtimeSettings: {
     refreshInterval: 250,
     staleAfterMs: 5000,

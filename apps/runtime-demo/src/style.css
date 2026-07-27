@@ -44,6 +44,34 @@ footer {
   font-size: 12px;
 }
 
+.runtime-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+#runtime-status {
+  color: #22c55e;
+  font-weight: 800;
+}
+
+#runtime-status[data-status="reconnecting"],
+#runtime-status[data-status="connecting"] {
+  color: #f59e0b;
+}
+
+#runtime-status[data-status="stopped"],
+#runtime-status[data-status="disposed"] {
+  color: #94a3b8;
+}
+
+#diagnostic-status {
+  max-width: 440px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .eyebrow {
   color: #38bdf8;
   font-size: 10px;
