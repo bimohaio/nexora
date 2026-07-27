@@ -200,9 +200,18 @@ describe("NativeSvgRenderer lifecycle and rendering", () => {
     renderer.renderDocument(createRendererTestDocument());
     renderer.resize({ width: 1000, height: 700 });
     expect(renderer.getSvgElement()?.getAttribute("viewBox")).toBe("0 0 1000 700");
+    const gridRectangle = renderer
+      .getSvgElement()
+      ?.querySelector<SVGRectElement>("[data-scada-grid] rect");
+    expect(gridRectangle?.getAttribute("width")).toBe("1000");
+    expect(gridRectangle?.getAttribute("height")).toBe("700");
+    expect(gridRectangle?.hasAttribute("transform")).toBe(false);
     renderer.setZoom(2, { x: 0, y: 0 });
     renderer.panBy({ x: 20, y: 30 });
     expect(renderer.getViewport()).toEqual({ x: 20, y: 30, zoom: 2 });
+    expect(
+      renderer.getSvgElement()?.querySelector("pattern")?.getAttribute("patternTransform")
+    ).toBe("translate(20 30) scale(2)");
     renderer.fitToView(0);
     expect(renderer.getViewport().zoom).toBe(1);
     renderer.setOptions({ showGrid: false, portVisibility: "never" });
@@ -258,6 +267,58 @@ describe("NativeSvgRenderer lifecycle and rendering", () => {
     expect(renderer.getElementForConnection("conn_direct")).toBe(connectionElement);
     expect(connectionElement?.style.display).toBe("none");
     expect(JSON.stringify(source)).toBe(original);
+  });
+
+  it("applies resolved snapshot diffs incrementally and recovers from revision gaps", () => {
+    const source = createRendererTestDocument();
+    const renderer = createSvgRenderer({ symbols: createExampleSymbolRegistry() });
+    renderer.mount(createContainer());
+    renderer.renderDocument(source);
+    const nodeA = renderer.getElementForNode("node_a");
+    const nodeAVisual = nodeA?.querySelector("[data-scada-symbol]");
+    const nodeAShape = nodeAVisual?.firstElementChild;
+    const nodeB = renderer.getElementForNode("node_b");
+    const connection = renderer.getElementForConnection("conn_orthogonal");
+    const baseDiff = {
+      addedNodeIds: [],
+      removedNodeIds: [],
+      addedConnectionIds: [],
+      updatedConnectionIds: [],
+      removedConnectionIds: [],
+      reset: false
+    };
+    renderer.renderRuntimeChanges(
+      {
+        revision: 1,
+        timestamp: 100,
+        getNodeState: (id) => (id === "node_a" ? "alarm" : undefined)
+      },
+      { ...baseDiff, fromRevision: 0, toRevision: 1, updatedNodeIds: ["node_a"] }
+    );
+    expect(renderer.getElementForNode("node_a")).toBe(nodeA);
+    expect(renderer.getElementForNode("node_b")).toBe(nodeB);
+    expect(renderer.getElementForConnection("conn_orthogonal")).toBe(connection);
+    expect(nodeA?.classList.contains("scada-state-alarm")).toBe(true);
+    expect(nodeA?.querySelector("[data-scada-symbol]")).toBe(nodeAVisual);
+    expect(nodeAVisual?.firstElementChild).toBe(nodeAShape);
+
+    renderer.renderRuntimeChanges(
+      { revision: 2, timestamp: 200, getNodeState: () => undefined },
+      { ...baseDiff, fromRevision: 1, toRevision: 2, updatedNodeIds: ["node_a"], reset: true }
+    );
+    expect(nodeA?.classList.contains("scada-state-normal")).toBe(true);
+
+    renderer.renderRuntimeChanges(
+      {
+        revision: 3,
+        timestamp: 300,
+        getNodeState: (id) => (id === "node_a" ? "running" : undefined)
+      },
+      { ...baseDiff, fromRevision: 999, toRevision: 3, updatedNodeIds: ["node_a"] }
+    );
+    expect(nodeA?.classList.contains("scada-state-running")).toBe(true);
+    expect(renderer.getElementForNode("node_b")).toBe(nodeB);
+    renderer.dispose();
   });
 
   it("namespaces definitions across renderer instances and coalesces frames", () => {

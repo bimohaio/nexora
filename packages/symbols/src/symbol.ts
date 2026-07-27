@@ -13,7 +13,18 @@ export type SymbolState =
   | "offline"
   | "disabled";
 
-export type SymbolRuntimeCapability = Exclude<SymbolState, "normal">;
+export type SymbolRuntimeCapability =
+  | Exclude<SymbolState, "normal">
+  | "open"
+  | "enabled"
+  | "level"
+  | "speed"
+  | "flow"
+  | "direction"
+  | "text"
+  | "value"
+  | "rotation"
+  | "animation";
 
 export type BuiltInSymbolCategory =
   | "basic"
@@ -143,7 +154,19 @@ function validateDefinition(definition: SymbolDefinition): void {
   if (supportedStates.size !== definition.supportedStates.length)
     throw new Error(`Duplicate supported state: ${definition.type}`);
   for (const capability of definition.runtimeCapabilities ?? [])
-    if (!supportedStates.has(capability))
+    if (
+      [
+        "active",
+        "inactive",
+        "running",
+        "stopped",
+        "warning",
+        "alarm",
+        "offline",
+        "disabled"
+      ].includes(capability) &&
+      !supportedStates.has(capability as SymbolState)
+    )
       throw new Error(
         `Runtime capability must be included in supported states: ${definition.type}:${capability}`
       );
@@ -372,7 +395,23 @@ function equipmentSymbol(
   };
 }
 
-export const TANK_SYMBOL = equipmentSymbol("equipment.tank", "tank", 140, 220);
+const tankBase = equipmentSymbol("equipment.tank", "tank", 140, 220);
+export const TANK_SYMBOL: SymbolDefinition = {
+  ...tankBase,
+  editableProperties: [
+    ...tankBase.editableProperties,
+    {
+      key: "level",
+      labelKey: "properties.level",
+      kind: "number",
+      defaultValue: 0,
+      minimum: 0,
+      maximum: 1,
+      bindable: true
+    }
+  ],
+  bindableProperties: [...tankBase.bindableProperties, { key: "level", dataTypes: ["number"] }]
+};
 export const PUMP_SYMBOL = equipmentSymbol("equipment.pump", "pump", 120, 90);
 export const VALVE_SYMBOL = equipmentSymbol("equipment.valve", "valve", 90, 70);
 export const MOTOR_SYMBOL = equipmentSymbol("equipment.motor", "motor", 110, 90, [

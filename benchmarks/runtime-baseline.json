@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "environment": "hardware-independent correctness baseline",
+  "scenarios": {
+    "small": { "symbols": 100, "updatesPerSecond": 200 },
+    "medium": { "symbols": 1000, "updatesPerSecond": 2000 },
+    "large": { "symbols": 5000, "updatesPerSecond": 10000 }
+  },
+  "invariants": {
+    "rejectedUpdates": 0,
+    "scheduledCallbacksPerFrame": 1,
+    "fullRerenders": 0,
+    "retainedQueueEntriesAfterFlush": 0
+  }
+}

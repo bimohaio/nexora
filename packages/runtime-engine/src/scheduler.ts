@@ -1,4 +1,9 @@
-import type { RuntimeDiagnostic, RuntimeScheduledTask, RuntimeTaskScheduler } from "./contracts.js";
+import type {
+  RuntimeDiagnostic,
+  RuntimeScheduledTask,
+  RuntimeScheduler,
+  RuntimeTaskScheduler
+} from "./contracts.js";
 import { RuntimeEngineError } from "./errors.js";
 
 class ScheduledTask implements RuntimeScheduledTask {
@@ -46,7 +51,7 @@ export interface ManualRuntimeSchedulerOptions {
   readonly now?: () => number;
 }
 
-export class ManualRuntimeScheduler implements RuntimeTaskScheduler {
+export class ManualRuntimeScheduler implements RuntimeTaskScheduler, RuntimeScheduler {
   readonly #tasks = new Map<
     number,
     { readonly task: () => void; readonly handle: ScheduledTask }
@@ -67,6 +72,10 @@ export class ManualRuntimeScheduler implements RuntimeTaskScheduler {
 
   public get pendingCount(): number {
     return this.#tasks.size;
+  }
+
+  public now(): number {
+    return this.#now();
   }
 
   public schedule(task: () => void): RuntimeScheduledTask {
@@ -101,6 +110,27 @@ export class ManualRuntimeScheduler implements RuntimeTaskScheduler {
         );
       }
     }
+  }
+
+  public flushAll(): void {
+    this.flush();
+  }
+
+  public flushOne(): void {
+    this.#assertUsable();
+    const first = [...this.#tasks.entries()].sort(([left], [right]) => left - right)[0];
+    if (first === undefined) return;
+    const [id, entry] = first;
+    this.#tasks.delete(id);
+    if (!entry.handle.canceled) entry.task();
+  }
+
+  public setTimeout(callback: () => void, _delayMs: number): unknown {
+    return this.schedule(callback);
+  }
+
+  public clearTimeout(handle: unknown): void {
+    if (handle instanceof ScheduledTask) handle.cancel();
   }
 
   public dispose(): void {

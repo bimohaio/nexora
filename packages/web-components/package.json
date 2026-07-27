@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@web-scada/designer-engine": "workspace:*",
+    "@web-scada/interaction-engine": "workspace:*",
     "@web-scada/runtime-engine": "workspace:*"
   }
 }

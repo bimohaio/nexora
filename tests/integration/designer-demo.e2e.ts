@@ -37,3 +37,56 @@ test("advanced editing rotates, groups, ungroups, and respects keyboard nudge", 
   await page.getByRole("button", { name: "Undo" }).click();
   await page.getByRole("button", { name: "Redo" }).click();
 });
+
+test("designer exposes semantic accessibility state and preferences", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+  await page.goto("/");
+  const root = page.locator("[data-scada-root]");
+  await expect(root).toHaveAttribute("role", "graphics-document");
+  await expect(root).toHaveAttribute("data-high-contrast", "");
+  await expect(root).toHaveAttribute("data-reduced-motion", "");
+
+  const tank = page.locator('[data-node-id="node_tank"]').first();
+  await expect(tank).toHaveAttribute("role", "graphics-symbol");
+  await expect(tank).toHaveAttribute("aria-label", /tank/i);
+  await tank.click();
+  await expect(tank).toHaveAttribute("aria-selected", "true");
+  await expect(tank).toHaveAttribute("data-accessibility-focused", "");
+  await expect(page.locator('[aria-live="polite"]')).toContainText("1 nodes");
+});
+
+test("designer remains responsive under coalescible interaction bursts", async ({ page }) => {
+  await page.goto("/");
+  const tank = page.locator('[data-node-id="node_tank"]').first();
+  await tank.click();
+  const elapsed = await page.evaluate(async () => {
+    const canvas = document.querySelector<HTMLElement>("#designer-canvas");
+    if (canvas === null) throw new Error("Designer canvas is missing.");
+    const started = performance.now();
+    for (let index = 0; index < 1_000; index += 1)
+      canvas.dispatchEvent(
+        new PointerEvent("pointermove", {
+          pointerId: 1,
+          clientX: index % 500,
+          clientY: index % 300,
+          bubbles: true
+        })
+      );
+    for (let index = 0; index < 100; index += 1)
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+    for (let index = 0; index < 100; index += 1)
+      canvas.dispatchEvent(
+        new WheelEvent("wheel", { deltaY: index % 2 === 0 ? -1 : 1, bubbles: true })
+      );
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          resolve();
+        })
+      );
+    });
+    return performance.now() - started;
+  });
+  expect(elapsed).toBeLessThan(2_000);
+  await expect(page.locator("#viewport-status")).toContainText("%");
+});

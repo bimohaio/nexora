@@ -66,7 +66,16 @@ export interface RendererEvent {
 
 export type RendererEventListener = (event: RendererEvent) => void;
 
+export interface RendererResolvedSymbolVisualState {
+  readonly symbolId: string;
+  readonly revision: number;
+  readonly effectiveState: SymbolState;
+  readonly properties: Readonly<Record<string, JsonValue>>;
+  readonly visible?: boolean;
+}
+
 export interface RuntimeVisualStateReader {
+  getNodeVisualState?(nodeId: string): RendererResolvedSymbolVisualState | undefined;
   getNodeState(nodeId: string): SymbolState | undefined;
   getNodeProperties?(nodeId: string): Readonly<Record<string, JsonValue>> | undefined;
   getNodeVisibility?(nodeId: string): boolean | undefined;
@@ -74,6 +83,23 @@ export interface RuntimeVisualStateReader {
     connectionId: string
   ): Partial<ScadaDocument["connections"][number]["style"]> | undefined;
   getConnectionVisibility?(connectionId: string): boolean | undefined;
+}
+
+export interface RendererRuntimeSnapshot extends RuntimeVisualStateReader {
+  readonly revision: number;
+  readonly timestamp: number;
+}
+
+export interface RendererRuntimeChangeSet {
+  readonly fromRevision: number;
+  readonly toRevision: number;
+  readonly addedNodeIds: readonly string[];
+  readonly updatedNodeIds: readonly string[];
+  readonly removedNodeIds: readonly string[];
+  readonly addedConnectionIds: readonly string[];
+  readonly updatedConnectionIds: readonly string[];
+  readonly removedConnectionIds: readonly string[];
+  readonly reset: boolean;
 }
 
 export interface RendererLogger {
@@ -85,11 +111,18 @@ export interface SvgSymbolRenderContext {
   readonly document: ScadaDocument;
   readonly node: ScadaDocument["nodes"][number];
   readonly state: SymbolState;
+  readonly visualState?: RendererResolvedSymbolVisualState;
 }
 
 export interface SvgSymbolRenderer {
   create(context: SvgSymbolRenderContext): SVGGElement;
   update(element: SVGGElement, context: SvgSymbolRenderContext): void;
+  updateDesign?(element: SVGGElement, context: SvgSymbolRenderContext): void;
+  updateRuntime?(
+    element: SVGGElement,
+    context: SvgSymbolRenderContext,
+    changedProperties?: readonly string[]
+  ): void;
   dispose?(element: SVGGElement): void;
 }
 
@@ -124,10 +157,17 @@ export interface SvgRenderer {
   resize(size: Size): void;
   setOptions(options: Partial<RendererOptions>): void;
   refreshRuntimeStates(nodeIds?: readonly string[], connectionIds?: readonly string[]): void;
+  renderRuntimeChanges(snapshot: RendererRuntimeSnapshot, diff: RendererRuntimeChangeSet): void;
   getViewport(): Viewport;
   getElementForNode(nodeId: string): SVGGElement | undefined;
   getElementForConnection(connectionId: string): SVGPathElement | undefined;
   getElementForPort(nodeId: string, portId: string): SVGElement | undefined;
   getSvgElement(): SVGSVGElement | undefined;
   dispose(): void;
+}
+
+export interface RendererHitAdapter {
+  hitNode(nodeId: string, worldPosition: Point): boolean;
+  hitConnection(connectionId: string, worldPosition: Point, tolerance?: number): boolean;
+  hitPort(nodeId: string, portId: string, worldPosition: Point): boolean;
 }

@@ -32,7 +32,15 @@ const packageRestrictions = {
     "@web-scada/web-components"
   ],
   "designer-engine": ["@web-scada/runtime-engine", "@web-scada/web-components"],
-  "runtime-engine": ["@web-scada/designer-engine", "@web-scada/web-components"]
+  "runtime-engine": ["@web-scada/designer-engine", "@web-scada/web-components"],
+  "interaction-engine": [
+    "@web-scada/core",
+    "@web-scada/renderer-svg",
+    "@web-scada/symbols",
+    "@web-scada/designer-engine",
+    "@web-scada/runtime-engine",
+    "@web-scada/web-components"
+  ]
 };
 
 export default tseslint.config(

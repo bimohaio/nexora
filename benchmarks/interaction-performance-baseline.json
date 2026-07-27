@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-07-27",
+  "environment": "Vitest/Node, development build",
+  "frameBudgetMs": 16,
+  "results": [
+    {
+      "nodes": 100,
+      "pointerMs": 0.00408,
+      "dragMs": 0.01326,
+      "selectionMs": 0.11155,
+      "focusMs": 0.00067,
+      "hitTestingMs": 0.02771
+    },
+    {
+      "nodes": 1000,
+      "pointerMs": 0.00162,
+      "dragMs": 0.01349,
+      "selectionMs": 0.25916,
+      "focusMs": 0.00053,
+      "hitTestingMs": 0.05089
+    },
+    {
+      "nodes": 5000,
+      "pointerMs": 0.0055,
+      "dragMs": 0.01134,
+      "selectionMs": 1.45875,
+      "focusMs": 0.0007,
+      "hitTestingMs": 0.16157
+    },
+    {
+      "nodes": 10000,
+      "pointerMs": 0.00144,
+      "dragMs": 0.14052,
+      "selectionMs": 2.37106,
+      "focusMs": 0.00059,
+      "hitTestingMs": 0.3065
+    },
+    {
+      "nodes": 20000,
+      "pointerMs": 0.00073,
+      "dragMs": 0.05483,
+      "selectionMs": 4.79057,
+      "focusMs": 0.0008,
+      "hitTestingMs": 0.61032
+    }
+  ]
+}

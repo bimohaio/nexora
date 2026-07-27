@@ -16,8 +16,11 @@ metadata, and browser coverage.
 
 ## Public APIs
 
-TODO: no accepted interaction package API exists. Renderer events and Designer
-Engine contracts are current inputs, not the final interaction API.
+`@web-scada/interaction-engine` is the accepted renderer- and browser-independent
+interaction API. Designer integration is provided by the selection, drag, keyboard,
+and accessibility adapters exported by `@web-scada/designer-engine`. Renderer
+integration remains behind typed adapter contracts; host DOM events are normalized
+at the application boundary.
 
 ## Dependencies
 

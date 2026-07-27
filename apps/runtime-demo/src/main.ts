@@ -3,7 +3,11 @@ import {
   resolveEntityMetadata,
   type RendererEvent
 } from "@web-scada/renderer-svg";
-import { createRuntimeEngine, type RuntimeEngineEvent } from "@web-scada/runtime-engine";
+import {
+  createRuntimeEngine,
+  createRuntimeRenderPipeline,
+  type RuntimeEngineEvent
+} from "@web-scada/runtime-engine";
 import { createExampleSymbolRegistry } from "@web-scada/symbols";
 
 import { WATER_TREATMENT_DOCUMENT } from "./sample-document.js";
@@ -32,9 +36,11 @@ const diagnosticStatus = requiredElement("#diagnostic-status");
 let showGrid = true;
 let showPorts = true;
 const provider = new SimulatedProcessProvider();
+const symbols = createExampleSymbolRegistry();
 const runtime = createRuntimeEngine({
   document: WATER_TREATMENT_DOCUMENT,
   provider,
+  symbols,
   reconnect: { initialDelayMs: 500, maximumDelayMs: 4000 }
 });
 
@@ -45,7 +51,7 @@ function updateViewportStatus(event?: RendererEvent): void {
 }
 
 const renderer = createSvgRenderer({
-  symbols: createExampleSymbolRegistry(),
+  symbols,
   runtimeState: runtime.visualState,
   onEvent: updateViewportStatus,
   options: {
@@ -61,8 +67,12 @@ renderer.mount(viewer);
 renderer.renderDocument(WATER_TREATMENT_DOCUMENT);
 renderer.fitToView(40);
 updateViewportStatus();
+const runtimeRenderPipeline = createRuntimeRenderPipeline({
+  source: runtime,
+  renderer
+});
 
-function updateRuntimeStatus(event?: RuntimeEngineEvent): void {
+function updateRuntimeStatus(_event?: RuntimeEngineEvent): void {
   const snapshot = runtime.getSnapshot();
   runtimeStatus.textContent = snapshot.status.toUpperCase();
   runtimeStatus.dataset.status = snapshot.status;
@@ -72,8 +82,6 @@ function updateRuntimeStatus(event?: RuntimeEngineEvent): void {
     lastDiagnostic === undefined
       ? "No diagnostics"
       : `${lastDiagnostic.code}: ${lastDiagnostic.message}`;
-  if (event?.type === "values")
-    renderer.refreshRuntimeStates(event.affected.nodeIds, event.affected.connectionIds);
 }
 
 const unsubscribeRuntime = runtime.subscribe(updateRuntimeStatus);
@@ -104,6 +112,18 @@ requiredButton("#fit").addEventListener("click", () => {
 });
 requiredButton("#state-toggle").addEventListener("click", () => {
   provider.setAlarm(!provider.alarm);
+});
+let pumpDisabled = false;
+requiredButton("#override-toggle").addEventListener("click", () => {
+  pumpDisabled = !pumpDisabled;
+  if (pumpDisabled)
+    runtime.setVisualOverride("node_feed_pump", {
+      disabled: true,
+      enabled: false,
+      state: "disabled"
+    });
+  else runtime.clearVisualOverride("node_feed_pump");
+  requiredButton("#override-toggle").textContent = pumpDisabled ? "Enable pump" : "Disable pump";
 });
 requiredButton("#connection-toggle").addEventListener("click", () => {
   provider.setAvailable(!provider.available);
@@ -156,6 +176,7 @@ observer.observe(viewer);
 window.addEventListener("beforeunload", () => {
   observer.disconnect();
   unsubscribeRuntime();
+  runtimeRenderPipeline.dispose();
   void runtime.dispose();
   renderer.dispose();
 });

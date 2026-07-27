@@ -9,6 +9,8 @@ import type {
   Viewport
 } from "./types.js";
 
+import type { Matrix } from "./types.js";
+
 const cleanFloat = (value: number): number => (Math.abs(value) < 1e-12 ? 0 : value);
 
 export function isFinitePoint(point: Point): boolean {
@@ -156,6 +158,47 @@ export function intersectsRectangle(left: Rectangle, right: Rectangle): boolean 
   const a = rectangleToBounds(left);
   const b = rectangleToBounds(right);
   return a.left <= b.right && a.right >= b.left && a.top <= b.bottom && a.bottom >= b.top;
+}
+
+export function distanceBetweenPoints(left: Point, right: Point): number {
+  return Math.hypot(right.x - left.x, right.y - left.y);
+}
+
+export function containsPointInCircle(center: Point, radius: number, point: Point): boolean {
+  if (!Number.isFinite(radius) || radius < 0) throw new RangeError("Radius must be non-negative.");
+  return distanceBetweenPoints(center, point) <= radius;
+}
+
+export function applyMatrix(point: Point, matrix: Matrix): Point {
+  return {
+    x: cleanFloat(matrix.a * point.x + matrix.c * point.y + matrix.e),
+    y: cleanFloat(matrix.b * point.x + matrix.d * point.y + matrix.f)
+  };
+}
+
+export function multiplyMatrices(left: Matrix, right: Matrix): Matrix {
+  return {
+    a: left.a * right.a + left.c * right.b,
+    b: left.b * right.a + left.d * right.b,
+    c: left.a * right.c + left.c * right.d,
+    d: left.b * right.c + left.d * right.d,
+    e: left.a * right.e + left.c * right.f + left.e,
+    f: left.b * right.e + left.d * right.f + left.f
+  };
+}
+
+export function invertMatrix(matrix: Matrix): Matrix {
+  const determinant = matrix.a * matrix.d - matrix.b * matrix.c;
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12)
+    throw new RangeError("Matrix must be invertible.");
+  return {
+    a: matrix.d / determinant,
+    b: -matrix.b / determinant,
+    c: -matrix.c / determinant,
+    d: matrix.a / determinant,
+    e: (matrix.c * matrix.f - matrix.d * matrix.e) / determinant,
+    f: (matrix.b * matrix.e - matrix.a * matrix.f) / determinant
+  };
 }
 
 export function unionBounds(...bounds: readonly Bounds[]): Bounds | undefined {

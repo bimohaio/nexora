@@ -93,17 +93,50 @@ export class SimulatedProcessProvider implements DataProvider {
   #emitValues(): void {
     if (!this.#connected || this.#paused || this.#listener === undefined) return;
     const timestamp = new Date().toISOString();
-    const level = 0.5 + Math.sin(this.#tick / 3) * 0.32;
+    const rawLevel = 0.62 + Math.sin(this.#tick / 8) * 0.24;
+    const cleanLevel = 0.54 + Math.sin(this.#tick / 11 - 0.8) * 0.3;
+    const flow = Math.max(0, 74 + Math.sin(this.#tick / 3) * 18);
+    const pressure = 3.15 + Math.sin(this.#tick / 4) * 0.62;
+    const temperature = 26.5 + Math.sin(this.#tick / 6) * 3.8;
+    const highPressure = pressure > 3.65;
+    const highTemperature = temperature > 29.5;
+    const lowRawLevel = rawLevel < 0.43;
+    const highCleanLevel = cleanLevel > 0.78;
+    const processAlarm = this.#alarm || highPressure || highTemperature;
+    const running = !processAlarm && !lowRawLevel && !highCleanLevel;
+    const processState = processAlarm ? "alarm" : running ? "running" : "stopped";
+    const valveState = processAlarm || highCleanLevel ? "inactive" : "active";
+    const sensorState = (warning: boolean): string =>
+      processAlarm ? "alarm" : warning ? "warning" : "active";
     const values: readonly RuntimeValue[] = [
-      this.#value("process.tank.level", level, "number", timestamp),
-      this.#value("process.pump.state", this.#alarm ? "alarm" : "running", "string", timestamp),
+      this.#value("process.raw-tank.level", rawLevel, "number", timestamp),
+      this.#value("process.clean-tank.level", cleanLevel, "number", timestamp),
+      this.#value("process.inlet-valve.state", valveState, "string", timestamp),
+      this.#value("process.feed-pump.state", processState, "string", timestamp),
+      this.#value("process.mixer.state", processState, "string", timestamp),
+      this.#value("process.outlet-valve.state", valveState, "string", timestamp),
+      this.#value("process.feed-motor.state", processState, "string", timestamp),
+      this.#value("process.flow.state", sensorState(flow < 62), "string", timestamp),
+      this.#value("process.pressure.state", sensorState(highPressure), "string", timestamp),
+      this.#value("process.temperature.state", sensorState(highTemperature), "string", timestamp),
+      this.#value("process.clean-level.state", sensorState(highCleanLevel), "string", timestamp),
+      this.#value("control.plc.state", processAlarm ? "warning" : "running", "string", timestamp),
+      this.#value("control.beacon.state", processAlarm ? "alarm" : "inactive", "string", timestamp),
+      this.#value("process.flow.text", `${flow.toFixed(1)} m³/h`, "string", timestamp),
+      this.#value("process.pressure.text", `${pressure.toFixed(2)} bar`, "string", timestamp),
+      this.#value("process.temperature.text", `${temperature.toFixed(1)} °C`, "string", timestamp),
       this.#value(
-        "process.indicator.state",
-        this.#alarm ? "warning" : "active",
+        "process.clean-level.text",
+        `${Math.round(cleanLevel * 100)} %`,
         "string",
         timestamp
       ),
-      this.#value("process.pipe.color", this.#alarm ? "#ef4444" : "#38bdf8", "string", timestamp)
+      this.#value(
+        "process.main-pipe.color",
+        processAlarm ? "#ef4444" : running ? "#38bdf8" : "#64748b",
+        "string",
+        timestamp
+      )
     ];
     for (const value of values) if (this.#tagIds.has(value.tagId)) this.#listener(value);
   }

@@ -4,7 +4,7 @@ import type {
   SvgSymbolRenderer,
   SvgSymbolRendererRegistry
 } from "./contracts.js";
-import { createSvgElement } from "./dom.js";
+import { createSvgElement, synchronizeSvgElement } from "./dom.js";
 
 type IndustrialGlyph =
   | "pump"
@@ -471,6 +471,18 @@ class IndustrialSvgSymbolRenderer implements SvgSymbolRenderer {
     element.setAttribute("class", `scada-symbol scada-state-${context.state}`);
     drawGlyph(element, context, this.descriptor);
     appendLabel(element, context);
+  }
+
+  public updateDesign(element: SVGGElement, context: SvgSymbolRenderContext): void {
+    this.update(element, context);
+  }
+
+  public updateRuntime(element: SVGGElement, context: SvgSymbolRenderContext): void {
+    const next = createSvgElement("g");
+    next.setAttribute("class", `scada-symbol scada-state-${context.state}`);
+    drawGlyph(next, context, this.descriptor);
+    appendLabel(next, context);
+    synchronizeSvgElement(element, next);
   }
 
   public dispose(element: SVGGElement): void {

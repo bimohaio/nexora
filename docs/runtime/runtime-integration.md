@@ -21,11 +21,26 @@ SVG renderer receives only `RuntimeVisualStateReader`. It neither owns the
 store nor connects to providers. Runtime property/style objects are merged into
 temporary render contexts. `ScadaDocument` and its entities remain unchanged.
 
-Runtime updates carry sorted affected node and connection IDs.
-`refreshRuntimeStates(nodeIds, connectionIds)` preserves unrelated DOM identity.
+Runtime value events carry an immutable `RuntimeVisualCommitEvent` containing
+previous/current resolved snapshots and a sorted renderer-neutral diff.
+`renderRuntimeChanges(snapshot, diff)` preserves unrelated DOM identity.
 Removed/reset keys are also expanded through the resolver so fallback visuals
 are restored. Engine value events include sorted raw changed keys and the
 committed runtime revision.
+
+The SVG renderer tracks the last visual revision per instance. Continuous diffs
+update only listed entities. A skipped revision or reset triggers a safe full
+runtime-state reapplication without rebuilding the document, layers, or entity
+roots. Duplicate and stale snapshots are ignored.
+
+```text
+simulator tick
+  -> public updateMany
+  -> raw value store
+  -> affected binding resolution
+  -> immutable resolved snapshot + diff
+  -> incremental SVG runtime update
+```
 
 ## Simulator boundary
 

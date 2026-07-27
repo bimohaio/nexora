@@ -5,6 +5,10 @@ export default defineConfig({
     alias: {
       "@web-scada/core": new URL("./packages/core/src/index.ts", import.meta.url).pathname,
       "@web-scada/geometry": new URL("./packages/geometry/src/index.ts", import.meta.url).pathname,
+      "@web-scada/interaction-engine": new URL(
+        "./packages/interaction-engine/src/index.ts",
+        import.meta.url
+      ).pathname,
       "@web-scada/designer-engine": new URL(
         "./packages/designer-engine/src/index.ts",
         import.meta.url
@@ -20,6 +24,14 @@ export default defineConfig({
   },
   test: {
     include: ["packages/**/*.test.ts", "tests/**/*.test.ts"],
-    coverage: { reporter: ["text", "html"] }
+    coverage: {
+      provider: "v8",
+      include: ["packages/interaction-engine/src/**/*.ts"],
+      exclude: [
+        "packages/interaction-engine/src/**/*.test.ts",
+        "packages/interaction-engine/src/**/*.benchmark.test.ts"
+      ],
+      reporter: ["text", "html", "json-summary"]
+    }
   }
 });

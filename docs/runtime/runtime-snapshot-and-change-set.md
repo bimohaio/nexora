@@ -31,3 +31,24 @@ Each changed commit creates one `RuntimeChangeSet` containing:
 
 Runtime change sets are separate from `DocumentChangeSet`: the former describes
 ephemeral values, while the latter describes persisted design mutations.
+
+## Resolved visual snapshot
+
+`RuntimeVisualSnapshot` is the renderer-facing boundary. Revision `0` is the
+initial fully resolved state. A scheduled flush creates revision `N + 1` only
+when a node or connection changes semantically. Its commit timestamp comes from
+the injected runtime clock and is separate from source-value timestamps.
+
+The snapshot exposes immutable `ReadonlyMap` views with no mutation methods.
+Entries, nested property/style maps, diffs, and changed-ID arrays are frozen.
+A commit copies the map indexes and replaces only changed entries, so unchanged
+entity-state objects preserve identity and older snapshots never change.
+
+`RuntimeVisualSnapshotDiff` contains lexicographically ordered added, updated,
+and removed node/connection IDs plus `fromRevision`, `toRevision`, and `reset`.
+Equivalent resolved state is a no-op. Equality recursively compares the
+finite, JSON-safe property and style fields rather than object references or
+serialized strings.
+
+Raw `RuntimeSnapshot` remains the normalized ingestion snapshot. The raw and
+resolved types deliberately describe opposite sides of state resolution.

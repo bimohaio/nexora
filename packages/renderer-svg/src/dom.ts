@@ -56,4 +56,28 @@ export function resolveEntityMetadata(target: EventTarget | null): EntityPointer
   }
   return {};
 }
+
+/** Applies calculated SVG state while retaining compatible element identities. */
+export function synchronizeSvgElement(target: Element, source: Element): void {
+  for (const attribute of Array.from(target.attributes))
+    if (!source.hasAttribute(attribute.name) && !attribute.name.startsWith("data-scada-"))
+      target.removeAttribute(attribute.name);
+  for (const attribute of Array.from(source.attributes))
+    target.setAttribute(attribute.name, attribute.value);
+  const sourceChildren = Array.from(source.children);
+  const targetChildren = Array.from(target.children);
+  for (let index = 0; index < sourceChildren.length; index += 1) {
+    const sourceChild = sourceChildren[index];
+    const targetChild = targetChildren[index];
+    if (sourceChild === undefined) continue;
+    if (targetChild?.tagName.toLowerCase() !== sourceChild.tagName.toLowerCase()) {
+      const replacement = sourceChild.cloneNode(true);
+      if (targetChild === undefined) target.append(replacement);
+      else targetChild.replaceWith(replacement);
+    } else synchronizeSvgElement(targetChild, sourceChild);
+  }
+  for (let index = target.children.length - 1; index >= sourceChildren.length; index -= 1)
+    target.children[index]?.remove();
+  if (sourceChildren.length === 0) target.textContent = source.textContent;
+}
 import type { EntityPointerMetadata } from "./contracts.js";

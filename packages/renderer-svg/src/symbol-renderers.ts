@@ -5,7 +5,7 @@ import type {
   SvgSymbolRenderer,
   SvgSymbolRendererRegistry
 } from "./contracts.js";
-import { createSvgElement } from "./dom.js";
+import { createSvgElement, synchronizeSvgElement } from "./dom.js";
 import { registerIndustrialSvgSymbolRenderers } from "./industrial-symbol-renderers.js";
 
 function stringProperty(context: SvgSymbolRenderContext, key: string, fallback: string): string {
@@ -81,6 +81,17 @@ class DrawingSymbolRenderer implements SvgSymbolRenderer {
     element.replaceChildren();
     element.setAttribute("class", `scada-symbol ${runtimeStateClass(context.state)}`);
     this.draw(element, context);
+  }
+
+  public updateDesign(element: SVGGElement, context: SvgSymbolRenderContext): void {
+    this.update(element, context);
+  }
+
+  public updateRuntime(element: SVGGElement, context: SvgSymbolRenderContext): void {
+    const next = createSvgElement("g");
+    next.setAttribute("class", `scada-symbol ${runtimeStateClass(context.state)}`);
+    this.draw(next, context);
+    synchronizeSvgElement(element, next);
   }
 
   public dispose(element: SVGGElement): void {

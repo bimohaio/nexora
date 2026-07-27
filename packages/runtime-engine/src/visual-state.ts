@@ -1,16 +1,19 @@
 import type { ConnectionStyle, JsonValue, PropertyBinding, ScadaDocument } from "@web-scada/core";
-import type { SymbolState } from "@web-scada/symbols";
+import type { SymbolRegistry, SymbolState } from "@web-scada/symbols";
 import {
   type BindingEvaluator,
   type DataQuality,
   type ResolvedConnectionVisualState,
   type ResolvedNodeVisualState,
+  type ResolvedSymbolVisualState,
   type RuntimeDiagnosticCode,
   type RuntimeValue,
+  type RuntimeSymbolVisualInput,
   type RuntimeVisualStateChange,
   type RuntimeVisualStateReader,
   type TagStore
 } from "./contracts.js";
+import { RuntimeSymbolVisualStateResolver } from "./symbol-visual-resolver.js";
 
 const SYMBOL_STATES: readonly SymbolState[] = [
   "normal",
@@ -35,6 +38,7 @@ export interface RuntimeVisualStateResolverOptions {
   readonly document: Readonly<ScadaDocument>;
   readonly store: TagStore;
   readonly evaluator: BindingEvaluator;
+  readonly symbols?: SymbolRegistry;
   readonly now: () => number;
   readonly onDiagnostic?: (code: RuntimeDiagnosticCode, message: string, bindingId: string) => void;
 }
@@ -114,6 +118,7 @@ export class RuntimeVisualStateResolver implements RuntimeVisualStateReader {
   readonly #bindingsByTag = new Map<string, readonly PropertyBinding[]>();
   readonly #nodeStates = new Map<string, ResolvedNodeVisualState>();
   readonly #connectionStates = new Map<string, ResolvedConnectionVisualState>();
+  readonly #symbolResolver: RuntimeSymbolVisualStateResolver | undefined;
 
   public constructor(options: RuntimeVisualStateResolverOptions) {
     this.#document = options.document;
@@ -121,6 +126,19 @@ export class RuntimeVisualStateResolver implements RuntimeVisualStateReader {
     this.#evaluator = options.evaluator;
     this.#now = options.now;
     this.#onDiagnostic = options.onDiagnostic;
+    this.#symbolResolver =
+      options.symbols === undefined
+        ? undefined
+        : new RuntimeSymbolVisualStateResolver({
+            targets: this.#document.nodes.map(({ id, symbolType }) => ({
+              symbolId: id,
+              symbolType
+            })),
+            symbols: options.symbols,
+            onDiagnostic: (code, message, symbolId) => {
+              this.#onDiagnostic?.(code, message, symbolId);
+            }
+          });
     for (const binding of this.#document.bindings) {
       if (!binding.enabled || binding.source.type !== "tag") continue;
       const current = this.#bindingsByTag.get(binding.source.tagId) ?? [];
@@ -159,6 +177,24 @@ export class RuntimeVisualStateResolver implements RuntimeVisualStateReader {
     return this.#nodeStates.get(nodeId)?.state;
   }
 
+  public getNodeVisualState(nodeId: string): ResolvedSymbolVisualState | undefined {
+    return this.#symbolResolver?.get(nodeId);
+  }
+
+  public setNodeOverride(nodeId: string, override: RuntimeSymbolVisualInput): boolean {
+    const changed = this.#symbolResolver?.setOverride(nodeId, override) ?? false;
+    const resolved = this.#symbolResolver?.get(nodeId);
+    if (changed && resolved !== undefined) this.#nodeStates.set(nodeId, resolved);
+    return changed;
+  }
+
+  public clearNodeOverride(nodeId: string): boolean {
+    const changed = this.#symbolResolver?.clearOverride(nodeId) ?? false;
+    const resolved = this.#symbolResolver?.get(nodeId);
+    if (changed && resolved !== undefined) this.#nodeStates.set(nodeId, resolved);
+    return changed;
+  }
+
   public getNodeProperties(nodeId: string): Readonly<Record<string, JsonValue>> | undefined {
     const properties = this.#nodeStates.get(nodeId)?.properties;
     return properties === undefined ? undefined : { ...properties };
@@ -192,7 +228,7 @@ export class RuntimeVisualStateResolver implements RuntimeVisualStateReader {
   }
 
   #resolveNode(nodeId: string): void {
-    const properties: Record<string, JsonValue> = {};
+    const properties: Record<string, JsonValue> = Object.create(null) as Record<string, JsonValue>;
     const qualities: DataQuality[] = [];
     let state: SymbolState | undefined;
     let visible: boolean | undefined;
@@ -220,12 +256,27 @@ export class RuntimeVisualStateResolver implements RuntimeVisualStateReader {
     }
     const quality = worstQuality(qualities, this.#document.runtimeSettings.defaultQuality);
     if (quality === "offline") state = "offline";
-    this.#nodeStates.set(nodeId, {
+    const base = {
       properties,
       quality,
       ...(state === undefined ? {} : { state }),
       ...(visible === undefined ? {} : { visible })
-    });
+    };
+    const resolved = this.#symbolResolver?.resolve(nodeId, [
+      {
+        sourceId: "runtime-bindings",
+        state,
+        quality,
+        properties,
+        visible,
+        level: properties.level,
+        speed: properties.speed,
+        flow: properties.flow,
+        text: properties.text,
+        value: properties.value
+      }
+    ]);
+    this.#nodeStates.set(nodeId, resolved ?? base);
   }
 
   #resolveConnection(connectionId: string): void {

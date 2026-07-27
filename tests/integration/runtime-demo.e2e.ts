@@ -6,9 +6,9 @@ test("runtime engine streams targeted visual state and supports viewer controls"
   await page.goto("/");
   const svg = page.locator("[data-scada-root]");
   await expect(svg).toBeVisible();
-  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(8);
+  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(18);
   await expect(page.locator('[data-entity-type="connection"][data-hit-area="true"]')).toHaveCount(
-    3
+    8
   );
 
   const status = page.locator("#viewport-status");
@@ -18,15 +18,20 @@ test("runtime engine streams targeted visual state and supports viewer controls"
 
   await page.getByRole("button", { name: "Fit" }).click();
   await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
-  await expect(page.locator("#tag-status")).toContainText("4 / 4 tags");
+  await expect(page.locator("#tag-status")).toContainText("18 / 18 tags");
   await page.getByRole("button", { name: "Toggle alarm" }).click();
-  await expect(page.locator('[data-entity-type="node"][data-node-id="node_pump"]')).toHaveClass(
-    /scada-state-alarm/
-  );
-  await expect(page.locator('[data-connection-id="conn_pump_valve"]').first()).toHaveAttribute(
+  await expect(
+    page.locator('[data-entity-type="node"][data-node-id="node_feed_pump"]')
+  ).toHaveClass(/scada-state-alarm/);
+  await expect(page.locator('[data-connection-id="conn_pump_mixer"]').first()).toHaveAttribute(
     "stroke",
     "#ef4444"
   );
+  await page.getByRole("button", { name: "Disable pump" }).click();
+  await expect(page.locator('[data-node-id="node_feed_pump"]').first()).toHaveClass(
+    /scada-state-disabled/
+  );
+  await page.getByRole("button", { name: "Enable pump" }).click();
 
   await page.getByRole("button", { name: "Ports" }).click();
   await expect(page.locator('[data-entity-type="port"]')).toHaveCount(0);
@@ -37,7 +42,7 @@ test("runtime engine streams targeted visual state and supports viewer controls"
 test("runtime foundation exposes revision, pause, reset, and resume", async ({ page }) => {
   await page.goto("/");
   const tagStatus = page.locator("#tag-status");
-  await expect(tagStatus).toContainText("4 / 4 tags");
+  await expect(tagStatus).toContainText("18 / 18 tags");
   await expect(tagStatus).toContainText(/revision [1-9]/);
 
   await page.getByRole("button", { name: "Pause", exact: true }).click();
@@ -47,9 +52,9 @@ test("runtime foundation exposes revision, pause, reset, and resume", async ({ p
   await expect(tagStatus).toHaveText(pausedStatus ?? "");
 
   await page.getByRole("button", { name: "Reset runtime" }).click();
-  await expect(tagStatus).toContainText("0 / 4 tags");
+  await expect(tagStatus).toContainText("0 / 18 tags");
   await page.getByRole("button", { name: "Resume", exact: true }).click();
-  await expect(tagStatus).toContainText("4 / 4 tags");
+  await expect(tagStatus).toContainText("18 / 18 tags");
 });
 
 test("runtime engine exposes disconnect, offline quality, and reconnect lifecycle", async ({
@@ -59,14 +64,14 @@ test("runtime engine exposes disconnect, offline quality, and reconnect lifecycl
   await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
   await page.getByRole("button", { name: "Disconnect" }).click();
   await expect(page.locator("#runtime-status")).toHaveText("RECONNECTING");
-  await expect(page.locator('[data-node-id="node_pump"]').first()).toHaveClass(
+  await expect(page.locator('[data-node-id="node_feed_pump"]').first()).toHaveClass(
     /scada-state-offline/
   );
   await expect(page.locator("#diagnostic-status")).toContainText("PROVIDER_RECONNECT_SCHEDULED");
 
   await page.getByRole("button", { name: "Reconnect" }).click();
   await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
-  await expect(page.locator('[data-node-id="node_pump"]').first()).toHaveClass(
+  await expect(page.locator('[data-node-id="node_feed_pump"]').first()).toHaveClass(
     /scada-state-running/
   );
 });

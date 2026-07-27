@@ -15,14 +15,17 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "vitest run --exclude '**/*.benchmark.test.ts'",
+    "test:coverage": "vitest run --coverage --exclude '**/*.benchmark.test.ts'",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "benchmark": "vitest run packages/runtime-engine/src/performance.benchmark.test.ts packages/interaction-engine/src/benchmarks/interaction-performance.benchmark.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@playwright/test": "1.49.1",
     "@types/node": "18",
+    "@vitest/coverage-v8": "2.1.9",
     "eslint": "^9.17.0",
     "eslint-plugin-import-x": "^4.5.0",
     "globals": "^15.14.0",

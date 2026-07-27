@@ -50,6 +50,8 @@ const runtime = createRuntimeEngine({
 - `store` and renderer-neutral `visualState`;
 - direct `update`, `updateMany`, `remove`, and `clear` ingestion;
 - `getRuntimeSnapshot()` for raw immutable state;
+- `getVisualSnapshot()` for resolved immutable renderer state;
+- `flush()` for deterministic pending visual commits;
 - `refreshFreshness()` for deterministic/manual checks;
 - `getStatus()` and `getSnapshot()`;
 - `subscribe()` for typed status, value, and diagnostic events.
@@ -70,18 +72,67 @@ Direct tag, variable, and constant sources are resolved in Phase 6.
 `BindingEvaluator` may be injected. Expression parsing and general
 transformations are deferred to Phase 8.
 
+Every `values` event includes `visualCommit` with the previous snapshot,
+committed snapshot, and `RuntimeVisualSnapshotDiff`. Visual revision `0` is the
+initial resolved snapshot. Revisions are instance-local and increment once per
+meaningful visual commit. The SVG renderer consumes this through
+`renderRuntimeChanges(snapshot, diff)`.
+
 ## Scheduling and diagnostics
 
 Updates are coalesced using `runtimeSettings.refreshInterval`. Freshness uses
 `staleAfterMs`. Reconnection defaults to bounded exponential backoff.
 `RuntimeScheduler` can be injected for deterministic tests.
 `ImmediateRuntimeScheduler` and `ManualRuntimeScheduler` implement the generic
-`RuntimeTaskScheduler` foundation; the manual variant supports cancellation,
-explicit flush, failure isolation, and disposal.
+`RuntimeTaskScheduler` foundation; the manual variant also implements
+`RuntimeScheduler` and supports cancellation, `flushOne`, `flushAll`, failure
+isolation, and disposal.
 
 Diagnostics cover connection failures, reconnect scheduling, invalid or
 out-of-order values, stale values, unsupported sources, and binding failures.
 Snapshot history is bounded by `diagnosticLimit`.
+
+`engine.diagnostics` exposes aggregated sanitized issues, health, clearing, and
+lightweight metrics. Logging is optional through `RuntimeLogger`; core code
+never calls `console`. `RuntimeRecoveryPolicyResolver` provides deterministic
+policy selection without changing diagnostic behavior.
+
+`RuntimeBatchQueue`, `RuntimeUpdateQueue`, and `RuntimeDispatcher` provide keyed
+batching and configurable coalescing. `RuntimeRenderPipeline` converts engine
+visual commits into one incremental renderer delivery per scheduled frame.
+`RuntimeMemoryAudit` and `RuntimeObjectPool` support bounded internal resource
+management. Pooled mutable objects must never enter snapshots.
+
+All exported contracts are renderer-neutral except
+`RuntimeIncrementalRenderer`, which is a structural port containing no SVG or
+DOM types.
+
+## Simulator
+
+`createRuntimeSimulator` creates a deterministic, renderer-neutral update
+producer. It accepts any `RuntimeUpdateSink`, including `RuntimeEngine` and
+`InMemoryTagStore`, and writes one atomic `updateMany` batch per tick.
+
+```ts
+const simulator = createRuntimeSimulator({
+  sink: runtime,
+  intervalMs: 250,
+  seed: 42
+});
+
+simulator.tick(); // deterministic manual mode
+simulator.start();
+simulator.pause();
+simulator.resume();
+simulator.reset();
+simulator.dispose();
+```
+
+`RuntimeSimulatorScenario` can replace the built-in industrial scenario.
+Scenario input contains an injected timestamp, monotonic tick number, and one
+seeded pseudo-random sample. The built-in scenario emits level, pump, valve,
+pressure, temperature, and connection state plus deterministic quality
+transitions.
 
 See also:
 

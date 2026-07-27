@@ -6,7 +6,9 @@ import {
   PanTool,
   RectangleTool,
   SelectTool,
+  createDesignerAccessibilityEngine,
   createDesignerEngine,
+  designerAccessibilityNodes,
   handleDesignerShortcut,
   isDesignerShortcutTarget,
   type DesignerController,
@@ -21,6 +23,8 @@ import {
   snapAngle
 } from "@web-scada/geometry";
 import {
+  SvgAccessibilityAdapter,
+  SvgLiveRegionAdapter,
   createSvgRenderer,
   resolveEntityMetadata,
   zoomViewportAtPoint
@@ -85,6 +89,26 @@ const designer: DesignerController = createDesignerEngine({
   renderer,
   idGenerator: ids
 });
+const contrastPreference = window.matchMedia("(forced-colors: active)");
+const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+const accessibility = createDesignerAccessibilityEngine({
+  designer,
+  renderer: new SvgAccessibilityAdapter(renderer),
+  screenReader: new SvgLiveRegionAdapter(rendererHost),
+  preferences: {
+    highContrast: contrastPreference.matches,
+    prefersReducedMotion: motionPreference.matches
+  }
+});
+const updateAccessibilityPreferences = (): void => {
+  accessibility.setPreferences({
+    highContrast: contrastPreference.matches,
+    prefersReducedMotion: motionPreference.matches
+  });
+};
+contrastPreference.addEventListener("change", updateAccessibilityPreferences);
+motionPreference.addEventListener("change", updateAccessibilityPreferences);
+let accessibilitySelection = "";
 
 const tools = new InMemoryToolRegistry();
 tools.register(new SelectTool(designer));
@@ -542,6 +566,17 @@ function resizeCanvas(): void {
 }
 
 designer.subscribeState(({ state }) => {
+  accessibility.update(designerAccessibilityNodes(designer));
+  const selectionMessage = `${String(state.selection.selectedNodeIds.length)} nodes and ${String(state.selection.selectedConnectionIds.length)} connections selected`;
+  if (selectionMessage !== accessibilitySelection) {
+    accessibilitySelection = selectionMessage;
+    accessibility.announce({
+      message: selectionMessage,
+      kind: "selection",
+      timestamp: performance.now()
+    });
+    accessibility.flushAnnouncements();
+  }
   overlay.render(state);
   renderInspector();
   undoButton.disabled = !state.canUndo;
@@ -557,6 +592,9 @@ overlay.render(designer.getRuntimeState());
 renderInspector();
 
 window.addEventListener("beforeunload", () => {
+  contrastPreference.removeEventListener("change", updateAccessibilityPreferences);
+  motionPreference.removeEventListener("change", updateAccessibilityPreferences);
+  accessibility.dispose();
   observer.disconnect();
   toolController.dispose();
   designer.dispose();

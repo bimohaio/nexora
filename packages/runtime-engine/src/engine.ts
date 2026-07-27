@@ -14,14 +14,20 @@ import {
   type RuntimeReconnectOptions,
   type RuntimeScheduler,
   type RuntimeSnapshot,
+  type RuntimeSymbolVisualInput,
   type RuntimeSubscription,
   type RuntimeUpdateResult,
-  type RuntimeValue
+  type RuntimeValue,
+  type RuntimeVisualSnapshot
 } from "./contracts.js";
 import { RuntimeEngineError } from "./errors.js";
+import { RuntimeDiagnosticsService } from "./diagnostics.js";
+import { RuntimeMetrics } from "./metrics.js";
 import { PassthroughBindingEvaluator } from "./evaluator.js";
 import { InMemoryTagStore } from "./store.js";
+import { RuntimeSubscriptionManager, statusObservation } from "./subscriptions.js";
 import { RuntimeVisualStateResolver } from "./visual-state.js";
+import { RuntimeVisualSnapshotRepository } from "./visual-snapshot.js";
 
 const DEFAULT_RECONNECT: RuntimeReconnectOptions = {
   enabled: true,
@@ -70,6 +76,8 @@ function diagnosticContext(
 export class ProviderRuntimeEngine implements RuntimeEngine {
   public readonly store;
   public readonly visualState;
+  public readonly subscriptions;
+  public readonly diagnostics;
   readonly #options: RuntimeEngineOptions;
   readonly #scheduler: RuntimeScheduler;
   readonly #reconnect: RuntimeReconnectOptions;
@@ -81,6 +89,8 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
   readonly #pendingTagIds = new Set<string>();
   readonly #storeSubscription: RuntimeSubscription;
   readonly #ownsStore: boolean;
+  readonly #visualSnapshots: RuntimeVisualSnapshotRepository;
+  readonly #metrics = new RuntimeMetrics();
   #unsubscribeProvider: (() => void) | undefined;
   #unsubscribeProviderStatus: (() => void) | undefined;
   #flushTimer: unknown;
@@ -91,12 +101,24 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
   #lastUpdateAt: string | undefined;
   #generation = 0;
   #startPromise: Promise<void> | undefined;
+  #pendingReset = false;
 
   public constructor(options: RuntimeEngineOptions) {
     this.#options = options;
     this.#scheduler = options.scheduler ?? SYSTEM_SCHEDULER;
+    this.subscriptions = new RuntimeSubscriptionManager({
+      now: () => this.#scheduler.now()
+    });
     this.#reconnect = { ...DEFAULT_RECONNECT, ...options.reconnect };
     this.#diagnosticLimit = options.diagnosticLimit ?? DEFAULT_DIAGNOSTIC_LIMIT;
+    this.diagnostics = new RuntimeDiagnosticsService({
+      limit: this.#diagnosticLimit,
+      ...(options.diagnosticSuppressionThreshold === undefined
+        ? {}
+        : { suppressionThreshold: options.diagnosticSuppressionThreshold }),
+      ...(options.logger === undefined ? {} : { logger: options.logger }),
+      metrics: this.#metrics
+    });
     validateOptions(options, this.#reconnect);
     if (!Number.isInteger(this.#diagnosticLimit) || this.#diagnosticLimit < 1)
       throw new RuntimeEngineError(
@@ -124,11 +146,17 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
       document: options.document,
       store: this.store,
       evaluator: options.evaluator ?? new PassthroughBindingEvaluator(),
+      ...(options.symbols === undefined ? {} : { symbols: options.symbols }),
       now: () => this.#scheduler.now(),
       onDiagnostic: (code, message, bindingId) => {
         this.#diagnostic(code, "warning", message, { bindingId });
       }
     });
+    this.#visualSnapshots = new RuntimeVisualSnapshotRepository(
+      options.document,
+      this.visualState,
+      () => this.#scheduler.now()
+    );
     this.#storeSubscription = this.store.subscribeChanges(({ changes }) => {
       for (const change of changes.changes) {
         this.#pendingTagIds.add(change.key);
@@ -157,12 +185,17 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
 
   public update(input: Readonly<RuntimeDataPointInput>): RuntimeUpdateResult {
     this.#assertUsable();
-    return this.store.update(input);
+    const result = this.store.update(input);
+    this.#metrics.recordUpdate(result.diagnostics.length > 0);
+    return result;
   }
 
   public updateMany(inputs: readonly Readonly<RuntimeDataPointInput>[]): RuntimeBatchResult {
     this.#assertUsable();
-    return this.store.updateMany(inputs);
+    const result = this.store.updateMany(inputs);
+    for (let index = 0; index < result.accepted; index += 1) this.#metrics.recordUpdate();
+    for (let index = 0; index < result.rejected; index += 1) this.#metrics.recordUpdate(true);
+    return result;
   }
 
   public remove(key: string): RuntimeUpdateResult {
@@ -172,11 +205,35 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
 
   public clear(): RuntimeBatchResult {
     this.#assertUsable();
+    this.#pendingReset = true;
     return this.store.clear();
+  }
+
+  public setVisualOverride(symbolId: string, override: RuntimeSymbolVisualInput): boolean {
+    this.#assertUsable();
+    const changed = this.visualState.setNodeOverride(symbolId, override);
+    if (changed) this.#publishVisualOverride(symbolId);
+    return changed;
+  }
+
+  public clearVisualOverride(symbolId: string): boolean {
+    this.#assertUsable();
+    const changed = this.visualState.clearNodeOverride(symbolId);
+    if (changed) this.#publishVisualOverride(symbolId);
+    return changed;
   }
 
   public getRuntimeSnapshot(): RuntimeSnapshot {
     return this.store.snapshot();
+  }
+
+  public getVisualSnapshot(): RuntimeVisualSnapshot {
+    return this.#visualSnapshots.snapshot;
+  }
+
+  public flush(): void {
+    this.#assertUsable();
+    this.#flushNow();
   }
 
   public async stop(): Promise<void> {
@@ -202,8 +259,9 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
     this.#clearFlushTimer();
     this.#storeSubscription.unsubscribe();
     if (this.#ownsStore) this.store.dispose();
-    this.#listeners.clear();
     this.#setStatus("disposed");
+    this.subscriptions.dispose();
+    this.#listeners.clear();
   }
 
   public refreshFreshness(): void {
@@ -243,7 +301,9 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
       diagnostics: this.#diagnostics.map((diagnostic) => ({
         ...diagnostic,
         context: { ...diagnostic.context }
-      }))
+      })),
+      health: this.diagnostics.getHealth(),
+      metrics: this.#metrics.snapshot(this.subscriptions.size)
     };
     return this.#lastUpdateAt === undefined ? base : { ...base, lastUpdateAt: this.#lastUpdateAt };
   }
@@ -360,12 +420,16 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
     this.#pendingValues.clear();
     this.#pendingTagIds.clear();
     const affected = this.visualState.refresh(tagIds);
+    const visualCommit = this.#visualSnapshots.commit(affected, this.#pendingReset);
+    this.#pendingReset = false;
+    if (visualCommit === undefined) return;
     this.#emit({
       type: "values",
       values,
       changedKeys: tagIds,
       runtimeRevision: this.store.revision,
       affected,
+      visualCommit,
       timestamp: new Date(this.#scheduler.now()).toISOString()
     });
   }
@@ -385,6 +449,21 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
     }, delay);
   }
 
+  #publishVisualOverride(symbolId: string): void {
+    const affected = { nodeIds: [symbolId], connectionIds: [] };
+    const visualCommit = this.#visualSnapshots.commit(affected);
+    if (visualCommit === undefined) return;
+    this.#emit({
+      type: "values",
+      values: Object.freeze([]),
+      changedKeys: Object.freeze([]),
+      runtimeRevision: this.store.revision,
+      affected,
+      visualCommit,
+      timestamp: new Date(this.#scheduler.now()).toISOString()
+    });
+  }
+
   #diagnostic(
     code: RuntimeDiagnosticCode,
     severity: RuntimeDiagnostic["severity"],
@@ -399,20 +478,26 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
       timestamp: new Date(this.#scheduler.now()).toISOString(),
       context: diagnosticContext(context)
     };
-    this.#diagnostics.push(diagnostic);
+    const aggregated = this.diagnostics.report(diagnostic);
+    this.#diagnostics.push(aggregated);
     if (this.#diagnostics.length > this.#diagnosticLimit) this.#diagnostics.shift();
-    this.#emit({ type: "diagnostic", diagnostic, timestamp: diagnostic.timestamp });
+    this.#emit({ type: "diagnostic", diagnostic: aggregated, timestamp: diagnostic.timestamp });
   }
 
   #recordDiagnostic(diagnostic: RuntimeDiagnostic): void {
-    this.#diagnostics.push(diagnostic);
+    const aggregated = this.diagnostics.report(diagnostic);
+    this.#diagnostics.push(aggregated);
     if (this.#diagnostics.length > this.#diagnosticLimit) this.#diagnostics.shift();
-    this.#emit({ type: "diagnostic", diagnostic, timestamp: diagnostic.timestamp });
+    this.#emit({ type: "diagnostic", diagnostic: aggregated, timestamp: diagnostic.timestamp });
   }
 
   #setStatus(status: RuntimeEngineStatus): void {
     if (this.#status === status) return;
+    const previousStatus = this.#status;
     this.#status = status;
+    this.subscriptions.publishStatus(
+      statusObservation(previousStatus, status, this.#scheduler.now())
+    );
     this.#emit({
       type: "status",
       status,
@@ -421,6 +506,17 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
   }
 
   #emit(event: RuntimeEngineEvent): void {
+    if (event.type === "values") {
+      this.subscriptions.publishValues(
+        Object.freeze({
+          values: Object.freeze([...event.values]),
+          changedKeys: Object.freeze([...event.changedKeys]),
+          revision: event.runtimeRevision,
+          timestamp: event.visualCommit.snapshot.timestamp
+        })
+      );
+      this.subscriptions.publishSnapshot(event.visualCommit);
+    }
     for (const listener of [...this.#listeners])
       try {
         listener(event);
@@ -434,7 +530,7 @@ export class ProviderRuntimeEngine implements RuntimeEngine {
           timestamp: new Date(this.#scheduler.now()).toISOString(),
           context: {}
         };
-        this.#diagnostics.push(diagnostic);
+        this.#diagnostics.push(this.diagnostics.report(diagnostic));
         if (this.#diagnostics.length > this.#diagnosticLimit) this.#diagnostics.shift();
       }
   }
