@@ -1,66 +1,121 @@
-# Web SCADA
+# Nexora Web SCADA
 
-A framework-independent TypeScript domain engine for long-lived industrial graphics, HMI, P&ID, BMS, electrical, water-treatment, dashboard, and digital-twin applications.
+A framework-independent TypeScript toolkit for building long-lived industrial graphics, HMI,
+P&ID, BMS, electrical, water-treatment, manufacturing, dashboard, and digital-twin applications.
 
-## Phase 6 status
+Nexora separates its immutable SCADA document model from editing, interaction, rendering, live
+data, and protocol adapters. The packages run in browsers or Node.js where their boundaries allow;
+Core and Geometry contain no browser globals.
 
-The repository includes the Core, native SVG renderer, industrial symbol
-library, Designer editing engine, advanced editing, and provider-neutral Runtime
-Engine:
+## What is included
 
-- Versioned `ScadaDocument` v1 model and JSON-safe extensions
-- Document factory, defaults, normalization, ULID-based IDs, and injected clocks
+### Document and domain engine
+
+- Versioned `ScadaDocument` v1 model with JSON-safe extension points
+- Factories, defaults, normalization, ULID-based IDs, and injectable clocks
 - Structural and semantic validation with stable codes and JSON Pointer paths
-- Symbol-aware port, compatibility, connection-limit, reference, and cycle validation
-- Parsing, deterministic serialization, semantic versions, and migration paths
-- Immutable indexes, queries, required mutations, cascades, changes, and domain events
-- Pure geometry for transforms, ports, viewports, grids, rectangles, and bounds
-- Metadata for the initial eight symbols with an in-memory registry
+- Symbol-aware port compatibility, connection limits, reference checks, and cycle validation
+- Safe parsing, deterministic serialization, semantic versions, and migration paths
+- Immutable indexes, queries, mutations, cascade handling, change sets, domain events, and command
+  contracts
+
+### Geometry, symbols, and SVG rendering
+
+- Pure geometry for transforms, ports, viewports, grids, rectangles, bounds, and spatial queries
+- Metadata-driven registry containing 37 industrial symbols across process, instrumentation,
+  electrical, BMS, safety, and network/control categories
+- Symbol aliases, editable and bindable property metadata, ports, states, and runtime capabilities
 - Accessible SVG hierarchy with background, world grid, viewport, ordered layers, and overlays
-- Rectangle, Text, Tank, Pump, Valve, Motor, Sensor, and Indicator Lamp visuals
-- Direct, manual, and basic deterministic orthogonal connections
-- Transform-aware ports, connection hit areas, markers, and medium classes
-- Programmatic zoom, anchor zoom, pan, resize, reset, and fit-to-view
-- Stable entity maps, incremental change sets, and animation-frame coalescing
-- Provider lifecycle, tag store, batching, quality, freshness, and reconnect
-- Ephemeral resolved node/connection state with targeted SVG refresh
-- Designer selection, transforms, history, grouping, snapping, and connection editing
-- Runtime and Designer demos with Playwright coverage
+- Direct, manual, and deterministic orthogonal connections with transform-aware ports, markers,
+  hit areas, and medium classes
+- Programmatic and anchored zoom, pan, resize, reset, fit-to-view, incremental rendering, stable
+  entity maps, and animation-frame coalescing
 
-## Document example
+### Designer and interaction
 
-```ts
-const document: ScadaDocument = {
-  schemaVersion: "1.0.0",
-  id: "doc_example",
-  metadata: {
-    name: "Plant",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-    tags: []
-  },
-  canvas: {
-    width: 1920,
-    height: 1080,
-    background: "transparent",
-    gridSize: 10,
-    gridVisible: true,
-    snapToGrid: true,
-    coordinateUnit: "logical",
-    defaultViewport: { x: 0, y: 0, zoom: 1 }
-  },
-  layers: [{ id: "layer_default", name: "Default", order: 0, visible: true, locked: false }],
-  nodes: [],
-  connections: [],
-  variables: [],
-  bindings: [],
-  runtimeSettings: { refreshInterval: 250, defaultQuality: "unknown" }
-};
+- Selection, multi-selection, pluggable tools, clipboard operations, and command-based undo/redo
+- Move, resize, rotate, group/ungroup, align, distribute, order, layer reassignment, lock, and hide
+- Grid and object snapping with deterministic ranking, keyboard nudging, and cancelable sessions
+- Connection creation, endpoint reassignment, and waypoint editing
+- Pointer and keyboard engines, hit testing, coordinate conversion, focus navigation, command
+  routing, ARIA metadata, screen-reader announcements, and live-region support
+- Spatial indexing, batching, caching, scheduling, metrics, diagnostics, and performance benchmarks
+- Binding authoring for create, edit, remove, duplicate, validate, preview, import, and export,
+  integrated with designer history
+
+### Runtime and data binding
+
+- Immutable, timestamp-aware tag store with canonical JSON-safe values, quality, freshness, and
+  atomic batch ingestion
+- Revisioned snapshots and diffs, filtered subscriptions, provider lifecycle, reconnect backoff,
+  scheduling, dispatch coalescing, diagnostics, health, recovery, latency, cache, and memory metrics
+- Ephemeral node, text, visibility, property, and connection-style state with targeted renderer
+  invalidation; runtime values never overwrite the persisted document
+- Direct tag, variable, and constant bindings plus a sandboxed expression language with a readonly
+  AST, allowlisted pure functions, bounded evaluation, and no JavaScript execution
+- Deterministic transformations, exact-value mapping, formatting, thresholds, dependency tracking,
+  incremental evaluation, bounded LRU caches, scheduling, and per-binding failure isolation
+- Renderer-neutral resolved visual snapshots, revisioned diffs, and runtime/renderer integration
+
+### Data sources
+
+- Protocol-independent adapter contracts for identity, capabilities, permissions, lifecycle,
+  reconnect, subscriptions, normalized values, batch operations, errors, and diagnostics
+- Shared subscription ownership and restoration across reconnects
+- Runtime bridge for ingesting normalized adapter events without coupling protocols to the engine
+- Deterministic simulator with constant, sequence, toggle, counter, sine, random-range,
+  random-walk, and manual generators
+- Fetch-compatible REST polling with declarative JSON mapping, optional writes, authentication
+  injection, request/response limits, host allowlists, and SSRF-conscious defaults
+- Persistent WebSocket streaming with JSON mapping, local or command-based subscriptions,
+  reconnect recovery, bounded queues, heartbeats, authentication injection, and secure defaults
+
+## Packages
+
+| Package                           | Responsibility                                                          |
+| --------------------------------- | ----------------------------------------------------------------------- |
+| `@web-scada/core`                 | Persisted document model, validation, migration, queries, and mutations |
+| `@web-scada/geometry`             | Browser-neutral geometry, transforms, and viewport calculations         |
+| `@web-scada/symbols`              | Industrial symbol metadata, aliases, ports, and registry                |
+| `@web-scada/renderer-svg`         | Accessible SVG rendering, connections, overlays, and viewport           |
+| `@web-scada/designer-engine`      | Editing tools, history, authoring workflows, and transient state        |
+| `@web-scada/interaction-engine`   | Pointer, keyboard, accessibility, spatial, and performance systems      |
+| `@web-scada/runtime-engine`       | Live values, providers, snapshots, visual state, metrics, and simulator |
+| `@web-scada/binding-engine`       | Direct/expression evaluation and visual-property resolution             |
+| `@web-scada/datasource-core`      | Protocol-neutral adapter lifecycle, subscriptions, and runtime bridge   |
+| `@web-scada/datasource-simulator` | Deterministic normalized data-source adapter                            |
+| `@web-scada/datasource-rest`      | Secure REST polling and optional write adapter                          |
+| `@web-scada/datasource-websocket` | Persistent WebSocket streaming adapter                                  |
+| `@web-scada/web-components`       | Reserved custom-element adapter boundary; no production UI yet          |
+| `@web-scada/shared`               | Minimal shared package boundary                                         |
+
+All packages are private workspace packages at version `0.0.0`; the repository is currently a
+source toolkit rather than a published npm release.
+
+## Demos and examples
+
+- `pnpm dev` starts the Designer demo with a symbol palette, selection and transform tools,
+  connection editing, undo/redo, property controls, and binding authoring.
+- `pnpm dev:runtime` starts the water-treatment runtime viewer with viewport controls, live state
+  and quality changes, pause/reset, overrides, and reconnect behavior.
+- `pnpm --filter @web-scada/symbol-gallery dev` starts the 37-symbol gallery.
+- [`examples/water-treatment/minimal-process.scada.json`](examples/water-treatment/minimal-process.scada.json)
+  is a compact end-to-end document.
+- [`examples/industrial`](examples/industrial) contains process, instrumentation, electrical, BMS,
+  and mixed-system documents. Additional example notes cover
+  [`electrical`](examples/electrical), [`manufacturing`](examples/manufacturing), and
+  [`water treatment`](examples/water-treatment).
+
+## Quick start
+
+Prerequisites: Node.js 18.18 or newer and pnpm 9.15.9.
+
+```bash
+pnpm install
+pnpm dev
 ```
 
-See [`examples/water-treatment/minimal-process.scada.json`](examples/water-treatment/minimal-process.scada.json) for a complete symbol-aware example.
-
-## Core usage
+Create, validate, mutate, and serialize a document:
 
 ```ts
 import {
@@ -70,68 +125,26 @@ import {
   serializeDocumentJson,
   validateDocumentSemantics
 } from "@web-scada/core";
-import { createExampleSymbolRegistry } from "@web-scada/symbols";
+import { createIndustrialSymbolRegistry } from "@web-scada/symbols";
 
+const symbols = createIndustrialSymbolRegistry();
 const document = createScadaDocument({ name: "Water Plant" });
-const registry = createExampleSymbolRegistry();
-const parsed = parseDocumentJson(importedJson, { symbolRegistry: registry });
-const validation = validateDocumentSemantics(document, { symbolRegistry: registry });
-const mutation = addNode(document, node, { symbolRegistry: registry });
+const parsed = parseDocumentJson(importedJson, { symbolRegistry: symbols });
+const validation = validateDocumentSemantics(document, { symbolRegistry: symbols });
+const mutation = addNode(document, node, { symbolRegistry: symbols });
 const output = serializeDocumentJson(mutation.success ? mutation.document : document, true);
 ```
 
-External values remain `unknown` until parsed. Mutation failures return the original document and structured issues.
+External values remain `unknown` until parsed. Failed mutations return the original document with
+structured issues.
 
-## Structure
-
-```text
-apps/       small Phase 1 integration demos
-packages/   core, geometry, symbols, renderer/engine/component boundaries
-docs/       architecture, data model, ADRs, conventions, and audits
-examples/   valid SCADA JSON fixtures
-tests/      integration and future performance suites
-tooling/    shared TypeScript, ESLint, and build configuration
-```
-
-Dependencies point inward: UI → engines → renderer → core/geometry/symbols. ESLint restrictions enforce prohibited directions. Core and geometry contain no browser globals.
-
-## Development
-
-```bash
-pnpm install
-pnpm dev
-pnpm dev:runtime
-pnpm format:check
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-```
-
-`pnpm dev` starts the Designer. `pnpm dev:runtime` starts the Phase 6
-water-treatment runtime viewer.
-
-## Runtime Engine
-
-```ts
-const runtime = createRuntimeEngine({ document, provider });
-runtime.subscribe((event) => {
-  if (event.type === "values")
-    renderer.refreshRuntimeStates(event.affected.nodeIds, event.affected.connectionIds);
-});
-await runtime.start();
-```
-
-Runtime values are ephemeral and never overwrite persisted document properties.
-
-## SVG renderer
+Render the document:
 
 ```ts
 import { createSvgRenderer } from "@web-scada/renderer-svg";
-import { createExampleSymbolRegistry } from "@web-scada/symbols";
 
 const renderer = createSvgRenderer({
-  symbols: createExampleSymbolRegistry(),
+  symbols,
   options: { gridPattern: "dots", portVisibility: "always" }
 });
 
@@ -141,15 +154,69 @@ renderer.fitToView();
 renderer.renderChanges(nextDocument, changeSet);
 ```
 
-Viewport semantics are `screen = canvas × zoom + translation`. The renderer consumes readonly state and never changes a document.
+Viewport semantics are `screen = canvas × zoom + translation`. The renderer consumes readonly
+state and never mutates a document.
 
-## Current limitations
+Connect runtime values:
 
-Deferred: expression binding, production protocol adapters, alarm and historian
-engines, animation scheduling, obstacle-avoiding routing, production Web
-Components, persistence, authentication, collaboration, and backend services.
+```ts
+const runtime = createRuntimeEngine({ document, provider });
 
-## Next milestone
+runtime.subscribe((event) => {
+  if (event.type === "values") {
+    renderer.refreshRuntimeStates(event.affected.nodeIds, event.affected.connectionIds);
+  }
+});
 
-The next planned milestone is Phase 7 interaction and accessibility hardening,
-followed by Phase 8 expression binding.
+await runtime.start();
+```
+
+See the package READMEs and [`docs/runtime`](docs/runtime) for binding evaluation, simulator,
+data-source bridge, lifecycle, snapshots, and visual-state integration.
+
+## Repository structure
+
+```text
+apps/       Designer, runtime viewer, and symbol-gallery demos
+packages/   Domain, rendering, editing, interaction, runtime, binding, and data-source packages
+docs/       Specifications, architecture, APIs, ADRs, audits, runtime guides, and roadmap
+examples/   Valid SCADA JSON fixtures and domain-specific example notes
+tests/      Integration, end-to-end, and performance suites
+tooling/    Shared TypeScript, ESLint, and build configuration
+```
+
+Dependencies point inward: applications and adapters depend on engines; engines depend on Core,
+Geometry, and Symbols. ESLint restrictions enforce prohibited directions.
+
+## Development and quality checks
+
+```bash
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:coverage
+pnpm test:e2e
+pnpm benchmark
+pnpm build
+```
+
+The benchmark command exercises runtime, interaction, and binding workloads, including the binding
+diagnostic matrix up to 10,000 bindings.
+
+## Documentation
+
+Start with [`docs/README.md`](docs/README.md). The
+[`master specification`](docs/master-spec/README.md) defines project-wide architecture and policy;
+subsystem guides document the implemented APIs, and the implementation is the final evidence of
+current availability.
+
+## Current scope and limitations
+
+Implemented work currently spans the foundation through the Phase 9 data-source adapters.
+Remaining roadmap items include broader production protocol adapters, alarms and historian,
+animation scheduling, obstacle-avoiding connection routing, persistence, authentication and
+authorization services, collaboration, backend services, and a production custom-element UI.
+
+The REST and WebSocket adapters provide secure protocol foundations, not a complete industrial
+gateway: OPC UA, MQTT, Modbus, BACnet, and vendor-specific transports are not included.
