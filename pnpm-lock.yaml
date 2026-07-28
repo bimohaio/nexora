@@ -105,14 +105,59 @@ importers:
         specifier: ^6.0.5
         version: 6.4.3(@types/node@18.19.130)
 
+  packages/binding-engine:
+    dependencies:
+      '@web-scada/core':
+        specifier: workspace:*
+        version: link:../core
+      '@web-scada/runtime-engine':
+        specifier: workspace:*
+        version: link:../runtime-engine
+
   packages/core:
     dependencies:
       ulid:
         specifier: 2.3.0
         version: 2.3.0
 
+  packages/datasource-core:
+    dependencies:
+      '@web-scada/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/datasource-rest:
+    dependencies:
+      '@web-scada/core':
+        specifier: workspace:*
+        version: link:../core
+      '@web-scada/datasource-core':
+        specifier: workspace:*
+        version: link:../datasource-core
+
+  packages/datasource-simulator:
+    dependencies:
+      '@web-scada/core':
+        specifier: workspace:*
+        version: link:../core
+      '@web-scada/datasource-core':
+        specifier: workspace:*
+        version: link:../datasource-core
+
+  packages/datasource-websocket:
+    dependencies:
+      '@web-scada/core':
+        specifier: workspace:*
+        version: link:../core
+      '@web-scada/datasource-core':
+        specifier: workspace:*
+        version: link:../datasource-core
+
   packages/designer-engine:
     dependencies:
+      '@web-scada/binding-engine':
+        specifier: workspace:*
+        version: link:../binding-engine
       '@web-scada/core':
         specifier: workspace:*
         version: link:../core
@@ -154,6 +199,9 @@ importers:
       '@web-scada/core':
         specifier: workspace:*
         version: link:../core
+      '@web-scada/datasource-core':
+        specifier: workspace:*
+        version: link:../datasource-core
       '@web-scada/symbols':
         specifier: workspace:*
         version: link:../symbols
