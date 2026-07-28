@@ -476,7 +476,15 @@ export class NativeDesignerEngine implements DesignerController {
   }
 
   public nudgeSelection(delta: Point): void {
-    this.moveSelection(delta);
+    const nodes = this.#editableSelectedNodes(true);
+    if (nodes.length === 0) return;
+    this.execute(
+      new MoveNodesCommand(
+        nodes.map(({ id }) => id),
+        delta,
+        this.#commandDependencies
+      )
+    );
   }
 
   public setSelectionLocked(locked: boolean): void {
@@ -635,6 +643,18 @@ export class NativeDesignerEngine implements DesignerController {
       nodes: this.#document.nodes.filter(({ id }) => selected.has(id)),
       connections: this.#document.connections.filter(
         ({ source, target }) => selected.has(source.nodeId) && selected.has(target.nodeId)
+      ),
+      bindings: this.#document.bindings.filter(
+        ({ target }) =>
+          ("nodeId" in target && selected.has(target.nodeId)) ||
+          ("connectionId" in target &&
+            this.#document.connections.some(
+              ({ id, source, target: endpoint }) =>
+                id === target.connectionId &&
+                selected.has(source.nodeId) &&
+                selected.has(endpoint.nodeId)
+            )) ||
+          (target.type === "visibility" && selected.has(target.entityId))
       )
     };
     if (fragment.nodes.length > 0) await this.#clipboard.write(JSON.stringify(fragment));
@@ -685,8 +705,47 @@ export class NativeDesignerEngine implements DesignerController {
         }
       ];
     });
-    this.execute(new InsertFragmentCommand(nodes, connections, this.#commandDependencies));
-    this.setSelection({ selectedNodeIds: nodes.map(({ id }) => id), selectedConnectionIds: [] });
+    const connectionIdMap = new Map(
+      fragment.connections.flatMap((connection, index) => {
+        const pasted = connections[index];
+        return pasted === undefined ? [] : [[connection.id, pasted.id] as const];
+      })
+    );
+    const bindingsByOldId = new Map<string, string>();
+    const bindings = (fragment.bindings ?? []).flatMap((binding) => {
+      let target = binding.target;
+      if ("nodeId" in target) {
+        const nodeId = idMap.get(target.nodeId);
+        if (nodeId === undefined) return [];
+        target = { ...target, nodeId };
+      } else if ("connectionId" in target) {
+        const connectionId = connectionIdMap.get(target.connectionId);
+        if (connectionId === undefined) return [];
+        target = { ...target, connectionId };
+      } else {
+        const entityId = idMap.get(target.entityId) ?? connectionIdMap.get(target.entityId);
+        if (entityId === undefined) return [];
+        target = { ...target, entityId };
+      }
+      const id = this.#ids.createBindingId();
+      bindingsByOldId.set(binding.id, id);
+      return [{ ...binding, id, target }];
+    });
+    const nodesWithBindings = nodes.map((node, index) => ({
+      ...node,
+      bindings:
+        fragment.nodes[index]?.bindings.flatMap((id) => {
+          const mapped = bindingsByOldId.get(id);
+          return mapped === undefined ? [] : [mapped];
+        }) ?? []
+    }));
+    this.execute(
+      new InsertFragmentCommand(nodesWithBindings, connections, this.#commandDependencies, bindings)
+    );
+    this.setSelection({
+      selectedNodeIds: nodesWithBindings.map(({ id }) => id),
+      selectedConnectionIds: []
+    });
   }
 
   public async duplicate(): Promise<void> {

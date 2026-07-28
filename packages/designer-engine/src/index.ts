@@ -1,4 +1,5 @@
 export * from "./change-set.js";
+export * from "./binding-authoring.js";
 export * from "./accessibility-adapter.js";
 export * from "./commands.js";
 export * from "./drag-adapter.js";

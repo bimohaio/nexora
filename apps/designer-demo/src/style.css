@@ -17,7 +17,7 @@
 
 body {
   margin: 0;
-  min-width: 1080px;
+  min-width: 1180px;
   min-height: 100vh;
   overflow: hidden;
 }
@@ -52,7 +52,7 @@ button:disabled {
   grid-template:
     "topbar topbar topbar" 3.6rem
     "palette canvas inspector" minmax(0, 1fr) /
-    15rem minmax(0, 1fr) 18rem;
+    15rem minmax(0, 1fr) 23rem;
   width: 100vw;
   height: 100vh;
   background: #07111f;
@@ -358,4 +358,186 @@ input {
 .shortcuts h3 {
   color: #94a3b8;
   font-size: 0.75rem;
+}
+
+.binding-panel {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #193249;
+}
+
+.binding-panel[hidden] {
+  display: none;
+}
+
+.section-heading,
+.binding-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.section-heading h3,
+.section-heading p {
+  margin: 0;
+}
+
+.section-heading h3 {
+  color: #a5f3fc;
+  font-size: 0.82rem;
+}
+
+.section-heading p {
+  margin-top: 0.18rem;
+  color: #64748b;
+  font-size: 0.66rem;
+}
+
+.binding-count {
+  display: grid;
+  min-width: 1.7rem;
+  min-height: 1.7rem;
+  place-items: center;
+  border: 1px solid #0e7490;
+  border-radius: 999px;
+  color: #67e8f9;
+  background: #083344;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.binding-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.binding-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  border: 1px solid #25445d;
+  border-left: 3px solid #22d3ee;
+  border-radius: 0.55rem;
+  background: #071522;
+}
+
+.binding-card[data-enabled="false"] {
+  border-left-color: #64748b;
+  opacity: 0.75;
+}
+
+.binding-card strong {
+  color: #e2e8f0;
+  font-size: 0.76rem;
+}
+
+.binding-card code {
+  overflow: hidden;
+  color: #f0abfc;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.binding-card small {
+  color: #7890a9;
+  font-size: 0.65rem;
+}
+
+.binding-badge {
+  padding: 0.15rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.56rem;
+  font-weight: 800;
+}
+
+.binding-badge.enabled {
+  color: #6ee7b7;
+  background: #064e3b;
+}
+
+.binding-badge.disabled {
+  color: #cbd5e1;
+  background: #334155;
+}
+
+.binding-valid,
+.binding-invalid,
+.binding-empty {
+  margin: 0;
+  font-size: 0.64rem;
+}
+
+.binding-valid,
+.binding-form-status[data-status="success"] {
+  color: #6ee7b7;
+}
+
+.binding-invalid,
+.binding-form-status[data-status="error"] {
+  color: #fca5a5;
+}
+
+.binding-empty {
+  padding: 0.65rem;
+  border: 1px dashed #25445d;
+  border-radius: 0.45rem;
+  color: #64748b;
+}
+
+.binding-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.3rem;
+}
+
+.binding-actions button {
+  padding: 0.35rem 0.2rem;
+  font-size: 0.62rem;
+}
+
+.binding-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid #193249;
+  border-radius: 0.55rem;
+  background: rgb(14 58 76 / 22%);
+}
+
+.binding-form label {
+  display: grid;
+  gap: 0.3rem;
+  color: #7890a9;
+  font-size: 0.66rem;
+}
+
+.binding-form input,
+.binding-form select {
+  width: 100%;
+  min-width: 0;
+  padding: 0.45rem;
+  border: 1px solid #25445d;
+  border-radius: 0.4rem;
+  color: #e2e8f0;
+  background: #071522;
+}
+
+.binding-create,
+.binding-form-status {
+  grid-column: 1 / -1;
+}
+
+.binding-create {
+  min-height: 2.2rem;
+  color: #a5f3fc;
+}
+
+.binding-form-status {
+  min-height: 1rem;
+  font-size: 0.64rem;
 }

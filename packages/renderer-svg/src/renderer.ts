@@ -421,11 +421,40 @@ export class NativeSvgRenderer implements SvgRenderer {
     const requestedNodes = nodeIds === undefined ? undefined : new Set(nodeIds);
     const requestedConnections = connectionIds === undefined ? undefined : new Set(connectionIds);
     for (const node of this.#document.nodes) {
-      if (requestedNodes === undefined || requestedNodes.has(node.id)) this.#renderNode(node, true);
+      if (requestedNodes === undefined || requestedNodes.has(node.id))
+        try {
+          this.#renderNode(node, true);
+        } catch (error) {
+          this.#emit(
+            "render-failed",
+            { nodeId: node.id },
+            {
+              operation: "runtime-node-update",
+              message: error instanceof Error ? error.message : "Runtime node update failed."
+            }
+          );
+          this.#logger?.error("Runtime node update failed.", { nodeId: node.id });
+        }
     }
     if (connectionIds !== undefined)
       for (const connection of this.#document.connections)
-        if (requestedConnections?.has(connection.id)) this.#renderConnection(connection);
+        if (requestedConnections?.has(connection.id))
+          try {
+            this.#renderConnection(connection);
+          } catch (error) {
+            this.#emit(
+              "render-failed",
+              { connectionId: connection.id },
+              {
+                operation: "runtime-connection-update",
+                message:
+                  error instanceof Error ? error.message : "Runtime connection update failed."
+              }
+            );
+            this.#logger?.error("Runtime connection update failed.", {
+              connectionId: connection.id
+            });
+          }
   }
 
   public renderRuntimeChanges(

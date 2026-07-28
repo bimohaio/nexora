@@ -1,5 +1,6 @@
-import { UlidEntityIdGenerator, type ScadaNode } from "@web-scada/core";
+import { UlidEntityIdGenerator, type JsonValue, type ScadaNode } from "@web-scada/core";
 import {
+  BindingAuthoringService,
   ConnectionTool,
   DesignerToolController,
   InMemoryToolRegistry,
@@ -54,6 +55,12 @@ const inspector = required<HTMLFormElement>("#node-inspector");
 const emptyInspector = required<HTMLElement>("#empty-inspector");
 const undoButton = required<HTMLButtonElement>("#undo");
 const redoButton = required<HTMLButtonElement>("#redo");
+const bindingPanel = required<HTMLElement>("#binding-panel");
+const bindingList = required<HTMLElement>("#binding-list");
+const bindingCount = required<HTMLOutputElement>("#binding-count");
+const bindingForm = required<HTMLFormElement>("#binding-form");
+const bindingFormStatus = required<HTMLOutputElement>("#binding-form-status");
+const bindingSourceLabel = required<HTMLElement>("#binding-source-label");
 const symbols = createIndustrialSymbolRegistry();
 const ids = new UlidEntityIdGenerator();
 const overlay = new DesignerOverlay(overlayElement);
@@ -87,6 +94,11 @@ const designer: DesignerController = createDesignerEngine({
   document: DESIGNER_SAMPLE_DOCUMENT,
   symbols,
   renderer,
+  idGenerator: ids
+});
+const bindingAuthoring = new BindingAuthoringService({
+  designer,
+  symbols,
   idGenerator: ids
 });
 const contrastPreference = window.matchMedia("(forced-colors: active)");
@@ -411,6 +423,152 @@ function field(name: string): HTMLInputElement {
   return result;
 }
 
+function bindingSelect(name: string): HTMLSelectElement {
+  const result = bindingForm.elements.namedItem(name);
+  if (!(result instanceof HTMLSelectElement)) throw new Error(`Binding field missing: ${name}`);
+  return result;
+}
+
+function bindingInput(name: string): HTMLInputElement {
+  const result = bindingForm.elements.namedItem(name);
+  if (!(result instanceof HTMLInputElement)) throw new Error(`Binding field missing: ${name}`);
+  return result;
+}
+
+function bindingButton(label: string, action: () => void): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.addEventListener("click", action);
+  return button;
+}
+
+function renderBindings(): void {
+  const state = designer.getState();
+  const nodeId = state.selection.selectedNodeIds[0];
+  const singleNode = state.selection.selectedNodeIds.length === 1;
+  bindingPanel.hidden = !singleNode;
+  if (!singleNode || nodeId === undefined) return;
+
+  const properties = bindingAuthoring.properties(nodeId).filter(({ bindable }) => bindable);
+  const propertySelect = bindingSelect("property");
+  const currentProperty = propertySelect.value;
+  propertySelect.replaceChildren(
+    ...properties.map((property) => {
+      const option = document.createElement("option");
+      option.value = property.key;
+      option.textContent = `${property.key} · ${property.dataTypes.join(" / ") || "JSON"}`;
+      return option;
+    })
+  );
+  if (properties.some(({ key }) => key === currentProperty)) propertySelect.value = currentProperty;
+
+  const bindings = bindingAuthoring
+    .list()
+    .filter(({ target }) => "nodeId" in target && target.nodeId === nodeId);
+  bindingCount.value = String(bindings.length);
+  bindingList.replaceChildren();
+  if (bindings.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "binding-empty";
+    empty.textContent = "No bindings yet. Create one below.";
+    bindingList.append(empty);
+  }
+  for (const binding of bindings) {
+    const preview = bindingAuthoring.preview(binding);
+    const card = document.createElement("article");
+    card.className = "binding-card";
+    card.dataset.bindingId = binding.id;
+    card.dataset.enabled = String(binding.enabled);
+
+    const header = document.createElement("header");
+    const title = document.createElement("strong");
+    title.textContent =
+      binding.target.type === "node-property" ? binding.target.property : binding.target.type;
+    const badge = document.createElement("span");
+    badge.className = binding.enabled ? "binding-badge enabled" : "binding-badge disabled";
+    badge.textContent = binding.enabled ? "ACTIVE" : "PAUSED";
+    header.append(title, badge);
+
+    const source = document.createElement("code");
+    source.textContent = preview?.sourceLabel ?? binding.source.type;
+    const target = document.createElement("small");
+    target.textContent = `→ ${preview?.targetLabel ?? "Unknown target"}`;
+
+    const validation = document.createElement("p");
+    validation.className = preview?.diagnostics.length === 0 ? "binding-valid" : "binding-invalid";
+    validation.textContent =
+      preview?.diagnostics.length === 0
+        ? "✓ Definition valid · evaluated only at runtime"
+        : `⚠ ${preview?.diagnostics[0]?.message ?? "Invalid definition"}`;
+
+    const actions = document.createElement("div");
+    actions.className = "binding-actions";
+    actions.append(
+      bindingButton(binding.enabled ? "Pause" : "Enable", () => {
+        bindingAuthoring.update(binding.id, { enabled: !binding.enabled });
+      }),
+      bindingButton("Duplicate", () => {
+        bindingAuthoring.duplicate(binding.id);
+      }),
+      bindingButton("Delete", () => {
+        bindingAuthoring.remove(binding.id);
+      })
+    );
+    card.append(header, source, target, validation, actions);
+    bindingList.append(card);
+  }
+}
+
+bindingSelect("sourceType").addEventListener("change", () => {
+  const type = bindingSelect("sourceType").value;
+  bindingSourceLabel.textContent =
+    type === "expression"
+      ? "Safe expression"
+      : type === "constant"
+        ? "Constant (JSON)"
+        : "Runtime tag ID";
+  bindingInput("source").value =
+    type === "expression"
+      ? "tag('plant.cooling.level') * 100"
+      : type === "constant"
+        ? "42"
+        : "plant.cooling.level";
+});
+
+bindingForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const nodeId = designer.getState().selection.selectedNodeIds[0];
+  const property = bindingSelect("property").value;
+  if (nodeId === undefined || property === "") return;
+  const sourceType = bindingSelect("sourceType").value;
+  const sourceText = bindingInput("source").value;
+  try {
+    const fallbackText = bindingInput("fallback").value.trim();
+    const fallback = fallbackText === "" ? undefined : (JSON.parse(fallbackText) as JsonValue);
+    const source =
+      sourceType === "expression"
+        ? ({ type: "expression", expression: sourceText } as const)
+        : sourceType === "constant"
+          ? ({ type: "constant", value: JSON.parse(sourceText) as JsonValue } as const)
+          : ({ type: "tag", tagId: sourceText } as const);
+    const result = bindingAuthoring.create({
+      source,
+      target: { type: "node-property", nodeId, property },
+      mode: "one-way",
+      enabled: true,
+      ...(fallback === undefined ? {} : { fallback })
+    });
+    bindingFormStatus.dataset.status = result.success ? "success" : "error";
+    bindingFormStatus.value = result.success
+      ? "Binding created. It will be evaluated only at runtime."
+      : (result.diagnostics[0]?.message ?? "Binding validation failed.");
+  } catch {
+    bindingFormStatus.dataset.status = "error";
+    bindingFormStatus.value = "Source and fallback must contain valid JSON.";
+  }
+});
+
 function renderInspector(): void {
   const state = designer.getRuntimeState();
   const node =
@@ -579,6 +737,7 @@ designer.subscribeState(({ state }) => {
   }
   overlay.render(state);
   renderInspector();
+  renderBindings();
   undoButton.disabled = !state.canUndo;
   redoButton.disabled = !state.canRedo;
   viewportStatus.value = `${String(Math.round(state.viewport.zoom * 100))}%`;
@@ -590,6 +749,7 @@ observer.observe(canvas);
 resizeCanvas();
 overlay.render(designer.getRuntimeState());
 renderInspector();
+renderBindings();
 
 window.addEventListener("beforeunload", () => {
   contrastPreference.removeEventListener("change", updateAccessibilityPreferences);

@@ -146,7 +146,11 @@ export type BindingSource =
   | { readonly type: "tag"; readonly tagId: string }
   | { readonly type: "variable"; readonly variableId: string }
   | { readonly type: "constant"; readonly value: JsonValue }
-  | { readonly type: "expression"; readonly expression: string };
+  | {
+      readonly type: "expression";
+      readonly expression: string;
+      readonly language?: "scada-expression-v1" | (string & {});
+    };
 
 export type BindingTarget =
   | { readonly type: "node-property"; readonly nodeId: string; readonly property: string }

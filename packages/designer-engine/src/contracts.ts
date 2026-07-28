@@ -4,7 +4,8 @@ import type {
   DomainEvent,
   ScadaConnection,
   ScadaDocument,
-  ScadaNode
+  ScadaNode,
+  PropertyBinding
 } from "@web-scada/core";
 import type { Alignment, Point, Rectangle, Viewport } from "@web-scada/geometry";
 
@@ -209,6 +210,7 @@ export interface DesignerClipboardFragment {
   readonly version: 1;
   readonly nodes: readonly ScadaNode[];
   readonly connections: readonly ScadaConnection[];
+  readonly bindings?: readonly PropertyBinding[];
 }
 
 export interface DesignerPointerEvent {

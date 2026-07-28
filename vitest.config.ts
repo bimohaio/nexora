@@ -4,6 +4,14 @@ export default defineConfig({
   resolve: {
     alias: {
       "@web-scada/core": new URL("./packages/core/src/index.ts", import.meta.url).pathname,
+      "@web-scada/datasource-core": new URL(
+        "./packages/datasource-core/src/index.ts",
+        import.meta.url
+      ).pathname,
+      "@web-scada/binding-engine": new URL(
+        "./packages/binding-engine/src/index.ts",
+        import.meta.url
+      ).pathname,
       "@web-scada/geometry": new URL("./packages/geometry/src/index.ts", import.meta.url).pathname,
       "@web-scada/interaction-engine": new URL(
         "./packages/interaction-engine/src/index.ts",

@@ -18,3 +18,14 @@ commit one final command on pointer up.
 
 See [Designer Engine API](../../docs/api/designer-api.md) and
 [Designer architecture](../../docs/architecture/designer-architecture.md).
+
+## Binding authoring
+
+`BindingAuthoringService` is the renderer-independent boundary for creating, editing, removing,
+duplicating, validating, previewing, importing, and exporting persisted bindings. Its mutations use
+designer command history, so undo and redo restore both definitions and owning-node references.
+
+Preview describes authoring intent and fallback data without evaluating tags or expressions.
+`properties(nodeId)` adapts symbol metadata for property editors. Exports use the versioned
+`web-scada-bindings` envelope, while version 1 clipboard payloads accept an optional `bindings`
+field and remain backward compatible.

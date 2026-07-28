@@ -15,6 +15,7 @@ import {
   type ScadaConnection,
   type ScadaDocument,
   type ScadaNode,
+  type PropertyBinding,
   type SymbolRegistry as CoreSymbolRegistry
 } from "@web-scada/core";
 import type { Point } from "@web-scada/geometry";
@@ -230,7 +231,8 @@ export class InsertFragmentCommand extends SnapshotCommand {
   public constructor(
     nodes: readonly ScadaNode[],
     connections: readonly ScadaConnection[],
-    dependencies: DesignerCommandDependencies = {}
+    dependencies: DesignerCommandDependencies = {},
+    bindings: readonly PropertyBinding[] = []
   ) {
     super(
       "add-node",
@@ -244,6 +246,7 @@ export class InsertFragmentCommand extends SnapshotCommand {
           const result = addConnection(next, connection, mutationOptions(dependencies));
           if (result.success) next = result.document;
         }
+        if (bindings.length > 0) next = { ...next, bindings: [...next.bindings, ...bindings] };
         return next;
       },
       dependencies

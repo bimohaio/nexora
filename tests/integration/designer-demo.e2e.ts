@@ -15,6 +15,46 @@ test("designer selects, deletes, and restores a node through command history", a
   await expect(page.locator('[data-node-id="node_tank"]').first()).toBeVisible();
 });
 
+test("designer visually authors and maintains bindings", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-node-id="node_tank"]').first().click();
+  const panel = page.getByRole("region", { name: "Data bindings" });
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('[data-binding-id="binding_tank_level"]')).toContainText(
+    "plant.cooling.level"
+  );
+  await expect(panel).toContainText("Definition valid");
+
+  await panel.getByRole("button", { name: "Pause" }).click();
+  await expect(panel.locator('[data-binding-id="binding_tank_level"]')).toContainText("PAUSED");
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(panel.locator('[data-binding-id="binding_tank_level"]')).toContainText("ACTIVE");
+
+  await panel.getByRole("button", { name: "Duplicate" }).click();
+  await expect(panel.locator(".binding-card")).toHaveCount(2);
+  await panel.getByRole("button", { name: "Delete" }).last().click();
+  await expect(panel.locator(".binding-card")).toHaveCount(1);
+
+  await panel.getByRole("button", { name: "Create binding" }).click();
+  await expect(panel.locator(".binding-card")).toHaveCount(2);
+  await expect(page.locator("#binding-form-status")).toContainText("Binding created");
+});
+
+test("arrow keys nudge the selected node without grid snapping", async ({ page }) => {
+  await page.goto("/");
+  const tank = page.locator('[data-node-id="node_tank"]').first();
+  await tank.click();
+  const x = page.locator('#node-inspector input[name="x"]');
+  const y = page.locator('#node-inspector input[name="y"]');
+  await expect(x).toHaveValue("120");
+  await expect(y).toHaveValue("180");
+
+  await page.keyboard.press("ArrowRight");
+  await expect(x).toHaveValue("121");
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(y).toHaveValue("190");
+});
+
 test("advanced editing rotates, groups, ungroups, and respects keyboard nudge", async ({
   page
 }) => {

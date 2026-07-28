@@ -393,6 +393,7 @@ function validateVariables(value: unknown, issues: ValidationIssue[]): void {
 function validateBindings(value: unknown, issues: ValidationIssue[]): void {
   if (!Array.isArray(value)) return;
   value.forEach((binding, index) => {
+    const path = `/bindings/${String(index)}`;
     if (
       !isRecord(binding) ||
       typeof binding.id !== "string" ||
@@ -403,13 +404,45 @@ function validateBindings(value: unknown, issues: ValidationIssue[]): void {
       !isJsonValue(binding)
     )
       issues.push(
-        issue(
-          "DOCUMENT_SCHEMA_INVALID",
-          "Binding has an invalid structure.",
-          `/bindings/${String(index)}`,
-          "fatal"
-        )
+        issue("DOCUMENT_SCHEMA_INVALID", "Binding has an invalid structure.", path, "fatal")
       );
+    else {
+      const source = binding.source;
+      const sourceValid =
+        (source.type === "tag" && typeof source.tagId === "string") ||
+        (source.type === "variable" && typeof source.variableId === "string") ||
+        (source.type === "constant" && isJsonValue(source.value)) ||
+        (source.type === "expression" && typeof source.expression === "string");
+      if (!sourceValid)
+        issues.push(
+          issue(
+            "BINDING_SOURCE_INVALID",
+            "Binding source has an unsupported or malformed structure.",
+            `${path}/source`,
+            "fatal"
+          )
+        );
+      const target = binding.target;
+      const targetValid =
+        (target.type === "node-property" &&
+          typeof target.nodeId === "string" &&
+          typeof target.property === "string") ||
+        (target.type === "node-state" && typeof target.nodeId === "string") ||
+        (target.type === "connection-property" &&
+          typeof target.connectionId === "string" &&
+          typeof target.property === "string") ||
+        (target.type === "visibility" && typeof target.entityId === "string") ||
+        (target.type === "text" && typeof target.nodeId === "string");
+      if (!targetValid)
+        issues.push(
+          issue(
+            "BINDING_TARGET_INVALID",
+            "Binding target has an unsupported or malformed structure.",
+            `${path}/target`,
+            "fatal"
+          )
+        );
+    }
   });
 }
 
@@ -841,6 +874,17 @@ function validateBindingsSemantics(
       );
     if (binding.source.type === "tag" && binding.source.tagId.trim() === "")
       issues.push(issue("BINDING_SOURCE_INVALID", "Tag ID is required.", `${path}/source/tagId`));
+    if (binding.source.type === "expression" && binding.source.expression.trim() === "")
+      issues.push(
+        issue("BINDING_SOURCE_INVALID", "Expression text is required.", `${path}/source/expression`)
+      );
+    if (
+      (binding.target.type === "node-property" || binding.target.type === "connection-property") &&
+      binding.target.property.trim() === ""
+    )
+      issues.push(
+        issue("BINDING_TARGET_INVALID", "Target property is required.", `${path}/target/property`)
+      );
     if (
       ("nodeId" in binding.target && !nodeById.has(binding.target.nodeId)) ||
       (binding.target.type === "visibility" &&

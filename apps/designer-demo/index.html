@@ -10,7 +10,7 @@
       <header class="topbar">
         <div class="brand">
           <span class="brand-mark">NX</span>
-          <div><strong>Nexora Designer</strong><small>Phase 4 · Designer MVP</small></div>
+          <div><strong>Nexora Designer</strong><small>Phase 8 · Binding Authoring</small></div>
         </div>
         <nav class="toolbar" aria-label="Designer tools">
           <button type="button" data-tool="select" aria-pressed="true">Select <kbd>V</kbd></button>
@@ -75,6 +75,40 @@
             <button type="button" data-order="back">Back</button>
           </div>
         </form>
+        <section id="binding-panel" class="binding-panel" aria-labelledby="binding-title" hidden>
+          <div class="section-heading">
+            <div>
+              <h3 id="binding-title">Data bindings</h3>
+              <p>Runtime-safe authoring preview</p>
+            </div>
+            <output id="binding-count" class="binding-count">0</output>
+          </div>
+          <div id="binding-list" class="binding-list" aria-label="Bindings for selected node"></div>
+          <form id="binding-form" class="binding-form" data-shortcut-guard>
+            <label
+              >Target property
+              <select name="property" aria-label="Binding target property"></select>
+            </label>
+            <label
+              >Source type
+              <select name="sourceType" aria-label="Binding source type">
+                <option value="tag">Runtime tag</option>
+                <option value="expression">Safe expression</option>
+                <option value="constant">Constant value</option>
+              </select>
+            </label>
+            <label
+              ><span id="binding-source-label">Runtime tag ID</span>
+              <input name="source" type="text" value="plant.cooling.level" autocomplete="off" />
+            </label>
+            <label
+              >Fallback (JSON)
+              <input name="fallback" type="text" value="0" autocomplete="off" />
+            </label>
+            <button type="submit" class="binding-create">＋ Create binding</button>
+            <output id="binding-form-status" class="binding-form-status"></output>
+          </form>
+        </section>
         <section class="shortcuts">
           <h3>Shortcuts</h3>
           <p><kbd>Ctrl/Cmd</kbd> + C/X/V/D · Z · Shift+Z · A</p>

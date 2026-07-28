@@ -44,7 +44,10 @@ export const DESIGNER_SAMPLE_DOCUMENT: ScadaDocument = {
   },
   layers: [{ id: "layer_process", name: "Process", order: 0, visible: true, locked: false }],
   nodes: [
-    node("node_tank", "Cooling Tank", "process.vertical-tank", 120, 180, 110, 180),
+    {
+      ...node("node_tank", "Cooling Tank", "process.vertical-tank", 120, 180, 110, 180),
+      bindings: ["binding_tank_level"]
+    },
     node("node_pump", "Circulation Pump", "process.centrifugal-pump", 390, 225, 120, 90),
     node("node_valve", "Isolation Valve", "process.gate-valve", 680, 235, 90, 70),
     node("node_sensor", "Flow Transmitter", "instrumentation.flow-sensor", 930, 230, 72, 72),
@@ -81,6 +84,15 @@ export const DESIGNER_SAMPLE_DOCUMENT: ScadaDocument = {
     }
   ],
   variables: [],
-  bindings: [],
+  bindings: [
+    {
+      id: "binding_tank_level",
+      source: { type: "tag", tagId: "plant.cooling.level" },
+      target: { type: "node-property", nodeId: "node_tank", property: "level" },
+      mode: "one-way",
+      fallback: 0,
+      enabled: true
+    }
+  ],
   runtimeSettings: { refreshInterval: 250, defaultQuality: "unknown" }
 };

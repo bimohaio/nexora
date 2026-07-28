@@ -132,6 +132,30 @@ describe("NativeDesignerEngine", () => {
 });
 
 describe("designer tools and shortcuts", () => {
+  it("nudges a selected node independently of grid snapping", () => {
+    const designer = createDesignerEngine({
+      document: document(),
+      symbols: createIndustrialSymbolRegistry()
+    });
+    designer.selectNode("node_a");
+
+    handleDesignerShortcut(designer, {
+      key: "ArrowRight",
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false
+    });
+    expect(designer.getState().document.nodes[0]?.transform.x).toBe(11);
+
+    handleDesignerShortcut(designer, {
+      key: "ArrowDown",
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: true
+    });
+    expect(designer.getState().document.nodes[0]?.transform).toMatchObject({ x: 11, y: 20 });
+  });
+
   it("routes tool lifecycle and commits drag and rectangle interactions", () => {
     const designer = createDesignerEngine({
       document: document(),
