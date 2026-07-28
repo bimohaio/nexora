@@ -4,6 +4,16 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 const packageRestrictions = {
+  "datasource-core": [
+    "@web-scada/binding-engine",
+    "@web-scada/designer-engine",
+    "@web-scada/geometry",
+    "@web-scada/interaction-engine",
+    "@web-scada/renderer-svg",
+    "@web-scada/runtime-engine",
+    "@web-scada/symbols",
+    "@web-scada/web-components"
+  ],
   core: [
     "@web-scada/geometry",
     "@web-scada/renderer-svg",

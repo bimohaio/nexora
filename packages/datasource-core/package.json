@@ -1,5 +1,5 @@
 {
-  "name": "@web-scada/runtime-engine",
+  "name": "@web-scada/datasource-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,8 +17,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@web-scada/core": "workspace:*",
-    "@web-scada/datasource-core": "workspace:*",
-    "@web-scada/symbols": "workspace:*"
+    "@web-scada/core": "workspace:*"
   }
 }

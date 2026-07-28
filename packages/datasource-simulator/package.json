@@ -1,5 +1,5 @@
 {
-  "name": "@web-scada/runtime-engine",
+  "name": "@web-scada/datasource-simulator",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -18,7 +18,6 @@
   },
   "dependencies": {
     "@web-scada/core": "workspace:*",
-    "@web-scada/datasource-core": "workspace:*",
-    "@web-scada/symbols": "workspace:*"
+    "@web-scada/datasource-core": "workspace:*"
   }
 }

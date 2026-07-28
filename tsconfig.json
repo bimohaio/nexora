@@ -6,6 +6,8 @@
     "baseUrl": ".",
     "paths": {
       "@web-scada/core": ["packages/core/src/index.ts"],
+      "@web-scada/datasource-core": ["packages/datasource-core/src/index.ts"],
+      "@web-scada/datasource-simulator": ["packages/datasource-simulator/src/index.ts"],
       "@web-scada/geometry": ["packages/geometry/src/index.ts"],
       "@web-scada/renderer-svg": ["packages/renderer-svg/src/index.ts"],
       "@web-scada/symbols": ["packages/symbols/src/index.ts"]
