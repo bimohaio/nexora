@@ -17,6 +17,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@web-scada/alarm-visualization": "workspace:*",
+    "@web-scada/animation-engine": "workspace:*",
     "@web-scada/binding-engine": "workspace:*",
     "@web-scada/core": "workspace:*",
     "@web-scada/geometry": "workspace:*",

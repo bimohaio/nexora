@@ -114,6 +114,17 @@ importers:
         specifier: ^6.0.5
         version: 6.4.3(@types/node@18.19.130)
 
+  packages/alarm-visualization:
+    dependencies:
+      '@web-scada/animation-engine':
+        specifier: workspace:*
+        version: link:../animation-engine
+      '@web-scada/runtime-engine':
+        specifier: workspace:*
+        version: link:../runtime-engine
+
+  packages/animation-engine: {}
+
   packages/binding-engine:
     dependencies:
       '@web-scada/core':

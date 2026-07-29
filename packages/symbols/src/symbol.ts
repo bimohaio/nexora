@@ -106,6 +106,15 @@ export interface SymbolDefinition {
   readonly bindableProperties: readonly BindablePropertyMetadata[];
   readonly supportedStates: readonly SymbolState[];
   readonly runtimeCapabilities?: readonly SymbolRuntimeCapability[];
+  /**
+   * Renderer-neutral Phase 10 targets. Definitions declare intent only and
+   * never own clocks, timers, subscriptions or renderer elements.
+   */
+  readonly phase10Capabilities?: {
+    readonly animationTargets?: readonly string[];
+    readonly alarmVisualTargets?: readonly string[];
+    readonly parts?: readonly string[];
+  };
   readonly capabilities?: readonly SymbolCapability[];
   readonly tags?: readonly string[];
   readonly presets?: readonly SymbolPreset[];
@@ -232,6 +241,13 @@ function validateDefinition(definition: SymbolDefinition): void {
       throw new Error(
         `Runtime capability must be included in supported states: ${definition.type}:${capability}`
       );
+  for (const target of [
+    ...(definition.phase10Capabilities?.animationTargets ?? []),
+    ...(definition.phase10Capabilities?.alarmVisualTargets ?? []),
+    ...(definition.phase10Capabilities?.parts ?? [])
+  ])
+    if (target.trim() === "" || ["__proto__", "prototype", "constructor"].includes(target))
+      throw new Error(`Invalid Phase 10 symbol target: ${definition.type}`);
   if (
     definition.deprecation?.deprecated === true &&
     definition.deprecation.replacedBy === definition.type

@@ -4,6 +4,7 @@ export * from "./accessibility.js";
 export * from "./dom.js";
 export * from "./errors.js";
 export * from "./industrial-symbol-renderers.js";
+export * from "./phase10-contracts.js";
 export * from "./renderer.js";
 export * from "./symbol-renderers.js";
 export * from "./symbol-environment.js";

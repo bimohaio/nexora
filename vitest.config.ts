@@ -3,6 +3,14 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   resolve: {
     alias: {
+      "@web-scada/alarm-visualization": new URL(
+        "./packages/alarm-visualization/src/index.ts",
+        import.meta.url
+      ).pathname,
+      "@web-scada/animation-engine": new URL(
+        "./packages/animation-engine/src/index.ts",
+        import.meta.url
+      ).pathname,
       "@web-scada/core": new URL("./packages/core/src/index.ts", import.meta.url).pathname,
       "@web-scada/datasource-core": new URL(
         "./packages/datasource-core/src/index.ts",

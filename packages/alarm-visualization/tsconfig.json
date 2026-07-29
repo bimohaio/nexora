@@ -1,0 +1,13 @@
+{
+  "extends": "../../tooling/typescript/tsconfig.package.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "baseUrl": "../..",
+    "paths": {
+      "@web-scada/animation-engine": ["packages/animation-engine/dist/index.d.ts"],
+      "@web-scada/runtime-engine": ["packages/runtime-engine/dist/index.d.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

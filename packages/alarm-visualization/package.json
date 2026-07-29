@@ -1,5 +1,5 @@
 {
-  "name": "@web-scada/renderer-svg",
+  "name": "@web-scada/alarm-visualization",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,6 +7,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./contracts": {
+      "types": "./dist/contracts.d.ts",
+      "import": "./dist/contracts.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
     }
   },
   "files": [
@@ -17,11 +25,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@web-scada/alarm-visualization": "workspace:*",
     "@web-scada/animation-engine": "workspace:*",
-    "@web-scada/core": "workspace:*",
-    "@web-scada/geometry": "workspace:*",
-    "@web-scada/interaction-engine": "workspace:*",
-    "@web-scada/symbols": "workspace:*"
+    "@web-scada/runtime-engine": "workspace:*"
   }
 }

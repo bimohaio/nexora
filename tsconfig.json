@@ -5,6 +5,8 @@
     "noEmit": true,
     "baseUrl": ".",
     "paths": {
+      "@web-scada/alarm-visualization": ["packages/alarm-visualization/src/index.ts"],
+      "@web-scada/animation-engine": ["packages/animation-engine/src/index.ts"],
       "@web-scada/core": ["packages/core/src/index.ts"],
       "@web-scada/datasource-core": ["packages/datasource-core/src/index.ts"],
       "@web-scada/datasource-simulator": ["packages/datasource-simulator/src/index.ts"],

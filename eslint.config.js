@@ -4,7 +4,27 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 const packageRestrictions = {
+  "animation-engine": [
+    "@web-scada/alarm-visualization",
+    "@web-scada/binding-engine",
+    "@web-scada/datasource-core",
+    "@web-scada/designer-engine",
+    "@web-scada/renderer-svg",
+    "@web-scada/runtime-engine",
+    "@web-scada/symbols",
+    "@web-scada/web-components"
+  ],
+  "alarm-visualization": [
+    "@web-scada/binding-engine",
+    "@web-scada/datasource-core",
+    "@web-scada/designer-engine",
+    "@web-scada/renderer-svg",
+    "@web-scada/symbols",
+    "@web-scada/web-components"
+  ],
   "datasource-core": [
+    "@web-scada/alarm-visualization",
+    "@web-scada/animation-engine",
     "@web-scada/binding-engine",
     "@web-scada/designer-engine",
     "@web-scada/geometry",
@@ -36,6 +56,8 @@ const packageRestrictions = {
     "@web-scada/web-components"
   ],
   symbols: [
+    "@web-scada/alarm-visualization",
+    "@web-scada/animation-engine",
     "@web-scada/renderer-svg",
     "@web-scada/designer-engine",
     "@web-scada/runtime-engine",
