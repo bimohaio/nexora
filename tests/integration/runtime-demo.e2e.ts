@@ -94,3 +94,83 @@ test("runtime viewer pans and resizes its SVG viewport", async ({ page }) => {
   await expect(page.locator("[data-scada-root]")).toHaveAttribute("width", /\d+/);
   await expect(page.locator("[data-scada-root]")).toHaveAttribute("height", /\d+/);
 });
+
+test("phase 9 showcase exposes manager diagnostics, bounded values, and quality recovery", async ({
+  page
+}) => {
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error.message));
+  await page.goto("/");
+  await expect(page.getByText("Validated · schema 1.0.0 · 18 nodes")).toBeVisible();
+  await expect(page.locator("#datasource-diagnostics")).toContainText("browser-simulator");
+  await expect(page.locator("#datasource-diagnostics")).toContainText("connected");
+  await expect(page.locator("#datasource-diagnostics")).toContainText("1");
+  await expect(page.locator("#runtime-values tr")).toHaveCount(18);
+
+  await page.getByRole("button", { name: "Bad quality" }).click();
+  await expect(page.getByRole("button", { name: "Restore good quality" })).toBeVisible();
+  await expect(page.locator('#runtime-values tr[data-quality="bad"]')).toHaveCount(18);
+  await page.getByRole("button", { name: "Restore good quality" }).click();
+  await expect(page.locator('#runtime-values tr[data-quality="good"]')).toHaveCount(18);
+  expect(browserErrors).toEqual([]);
+});
+
+test("designer mode selects entities without changing the persisted sample", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Designer" }).click();
+  await expect(page.locator("#mode-status")).toHaveText("Designer mode");
+  await page.locator('[data-node-id="node_feed_pump"]').first().click();
+  await expect(page.locator("#entity-inspector")).toContainText("P-101 Feed Pump");
+  await expect(page.locator("#entity-inspector")).toContainText("process.centrifugal-pump");
+
+  await page.getByRole("button", { name: "Runtime", exact: true }).click();
+  await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
+  await expect(page.locator('[data-node-id="node_feed_pump"]').first()).toBeVisible();
+});
+
+test("external datasource choices degrade to configuration guidance", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#datasource-select").selectOption("modbus");
+  await expect(page.locator("#adapter-config")).toContainText("Raw Modbus TCP is unavailable");
+  await expect(page.getByRole("button", { name: "Disconnect" })).toBeDisabled();
+  await page.locator("#datasource-select").selectOption("opcua");
+  await expect(page.locator("#adapter-config")).toContainText("requires Node.js/backend");
+  await page.locator("#datasource-select").selectOption("simulator");
+  await expect(page.getByRole("button", { name: "Disconnect" })).toBeEnabled();
+});
+
+test("two browser demo instances keep datasource and viewport state isolated", async ({ page }) => {
+  const second = await page.context().newPage();
+  await Promise.all([page.goto("/"), second.goto("/")]);
+  await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
+  await expect(second.locator("#runtime-status")).toHaveText("RUNNING");
+
+  const secondViewport = await second.locator("#viewport-status").textContent();
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect(second.locator("#viewport-status")).toHaveText(secondViewport ?? "");
+  await page.getByRole("button", { name: "Disconnect" }).click();
+  await expect(page.locator("#runtime-status")).toHaveText("RECONNECTING");
+  await expect(second.locator("#runtime-status")).toHaveText("RUNNING");
+
+  await page.close();
+  await expect(second.locator("#runtime-values tr")).toHaveCount(18);
+  await second.close();
+});
+
+test("showcase remains usable at supported desktop and tablet viewports", async ({ page }) => {
+  await page.goto("/");
+  for (const viewport of [
+    { width: 1920, height: 1080 },
+    { width: 1440, height: 900 },
+    { width: 1280, height: 720 },
+    { width: 1024, height: 768 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(
+      page.getByRole("heading", { name: "Water Treatment Control Center" })
+    ).toBeVisible();
+    await expect(page.locator("[data-scada-root]")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Runtime", exact: true })).toBeVisible();
+    await expect(page.locator("#datasource-diagnostics")).toBeVisible();
+  }
+});

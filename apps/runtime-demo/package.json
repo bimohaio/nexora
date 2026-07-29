@@ -6,10 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
+    "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@web-scada/core": "workspace:*",
+    "@web-scada/datasource-core": "workspace:*",
+    "@web-scada/datasource-simulator": "workspace:*",
+    "@web-scada/designer-engine": "workspace:*",
     "@web-scada/renderer-svg": "workspace:*",
     "@web-scada/symbols": "workspace:*",
     "@web-scada/runtime-engine": "workspace:*"

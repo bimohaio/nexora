@@ -1,3 +1,5 @@
+import { parseDocument, serializeDocumentJson } from "@web-scada/core";
+import { createDesignerEngine, type DesignerController } from "@web-scada/designer-engine";
 import {
   createSvgRenderer,
   resolveEntityMetadata,
@@ -11,38 +13,54 @@ import {
 import { createExampleSymbolRegistry } from "@web-scada/symbols";
 
 import { WATER_TREATMENT_DOCUMENT } from "./sample-document.js";
-import { SimulatedProcessProvider } from "./simulated-provider.js";
+import { ManagedSimulatorProvider } from "./simulated-provider.js";
 import "./style.css";
 
-function requiredElement(selector: string): HTMLElement {
-  const element = document.querySelector<HTMLElement>(selector);
+// The generic maps a known selector to its expected DOM subtype.
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+function required<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
   if (element === null) throw new Error(`Required element not found: ${selector}`);
   return element;
 }
 
-function requiredButton(selector: string): HTMLButtonElement {
-  const element = document.querySelector<HTMLButtonElement>(selector);
-  if (element === null) throw new Error(`Required button not found: ${selector}`);
-  return element;
-}
+const viewer = required<HTMLElement>("#viewer");
+const viewportStatus = required<HTMLOutputElement>("#viewport-status");
+const runtimeStatus = required<HTMLOutputElement>("#runtime-status");
+const tagStatus = required<HTMLOutputElement>("#tag-status");
+const diagnosticStatus = required<HTMLOutputElement>("#diagnostic-status");
+const documentStatus = required<HTMLOutputElement>("#document-status");
+const modeStatus = required<HTMLOutputElement>("#mode-status");
+const diagnosticsElement = required<HTMLElement>("#datasource-diagnostics");
+const valuesElement = required<HTMLTableSectionElement>("#runtime-values");
+const valueCount = required<HTMLOutputElement>("#value-count");
+const entityInspector = required<HTMLElement>("#entity-inspector");
+const errorRegion = required<HTMLElement>("#error-region");
+const datasourceSelect = required<HTMLSelectElement>("#datasource-select");
+const adapterConfig = required<HTMLElement>("#adapter-config");
 
-const viewer = requiredElement("#viewer");
-const viewportStatusElement = document.querySelector<HTMLOutputElement>("#viewport-status");
-if (viewportStatusElement === null) throw new Error("Viewport status output not found.");
-const viewportStatus: HTMLOutputElement = viewportStatusElement;
-const runtimeStatus = requiredElement("#runtime-status");
-const tagStatus = requiredElement("#tag-status");
-const diagnosticStatus = requiredElement("#diagnostic-status");
-let showGrid = true;
-let showPorts = true;
-const provider = new SimulatedProcessProvider();
+const parsed = parseDocument(WATER_TREATMENT_DOCUMENT);
+if (!parsed.success) throw new Error(parsed.issues.map(({ message }) => message).join("; "));
+const documentModel = parsed.document;
+const serializedDesign = serializeDocumentJson(documentModel);
+if (!serializedDesign.success) throw new Error(serializedDesign.error);
+const serializedDesignJson = serializedDesign.json;
+documentStatus.value = `Validated · schema ${documentModel.schemaVersion} · ${String(documentModel.nodes.length)} nodes`;
+
+const provider = new ManagedSimulatorProvider();
 const symbols = createExampleSymbolRegistry();
 const runtime = createRuntimeEngine({
-  document: WATER_TREATMENT_DOCUMENT,
+  document: documentModel,
   provider,
   symbols,
-  reconnect: { initialDelayMs: 500, maximumDelayMs: 4000 }
+  reconnect: { initialDelayMs: 500, maximumDelayMs: 4_000 }
 });
+
+let showGrid = true;
+let showPorts = true;
+let runtimeMode = true;
+let subscribed = true;
+let selectedId: string | undefined;
 
 function updateViewportStatus(event?: RendererEvent): void {
   if (event !== undefined && event.type !== "viewport-changed") return;
@@ -59,18 +77,19 @@ const renderer = createSvgRenderer({
     showPorts,
     gridPattern: "dots",
     portVisibility: "always",
-    ariaLabel: WATER_TREATMENT_DOCUMENT.metadata.name
+    ariaLabel: documentModel.metadata.name
   }
 });
-
 renderer.mount(viewer);
-renderer.renderDocument(WATER_TREATMENT_DOCUMENT);
+renderer.renderDocument(documentModel);
 renderer.fitToView(40);
 updateViewportStatus();
-const runtimeRenderPipeline = createRuntimeRenderPipeline({
-  source: runtime,
+const designer: DesignerController = createDesignerEngine({
+  document: documentModel,
+  symbols,
   renderer
 });
+const runtimeRenderPipeline = createRuntimeRenderPipeline({ source: runtime, renderer });
 
 function updateRuntimeStatus(_event?: RuntimeEngineEvent): void {
   const snapshot = runtime.getSnapshot();
@@ -84,37 +103,193 @@ function updateRuntimeStatus(_event?: RuntimeEngineEvent): void {
       : `${lastDiagnostic.code}: ${lastDiagnostic.message}`;
 }
 
-const unsubscribeRuntime = runtime.subscribe(updateRuntimeStatus);
-updateRuntimeStatus();
-void runtime.start().catch(() => {
-  updateRuntimeStatus();
-});
+function updateDatasourcePanels(): void {
+  const snapshot = provider.getDiagnostics();
+  const source = snapshot.sources[0];
+  const fields: readonly [string, string][] =
+    source === undefined
+      ? [
+          ["Manager", snapshot.manager.state],
+          ["Source", "Not registered"]
+        ]
+      : [
+          ["Source", source.descriptor.id],
+          ["Adapter", source.descriptor.adapterType],
+          ["Manager", snapshot.manager.state],
+          ["Connection", source.connectionStatus.state],
+          ["Health", source.health.state],
+          ["Subscriptions", String(source.activeSubscriptions)],
+          ["Events", String(source.counters.eventsReceived)],
+          ["Errors", String(source.counters.errors)],
+          ["Generation", String(source.generation)],
+          [
+            "Last event",
+            source.lastDataAt === undefined
+              ? "Not available"
+              : new Date(source.lastDataAt).toLocaleTimeString()
+          ]
+        ];
+  diagnosticsElement.replaceChildren(
+    ...fields.flatMap(([term, description]) => {
+      const dt = document.createElement("dt");
+      const dd = document.createElement("dd");
+      dt.textContent = term;
+      dd.textContent = description;
+      return [dt, dd];
+    })
+  );
+  const values = provider.getRecentValues();
+  valueCount.value = `${String(values.length)} values · event ${String(provider.eventRevision)}`;
+  valuesElement.replaceChildren(
+    ...values.map((value) => {
+      const row = document.createElement("tr");
+      const cells = [
+        value.tagId,
+        typeof value.value === "string" ? value.value : JSON.stringify(value.value),
+        value.quality.toUpperCase(),
+        new Date(value.timestamp).toLocaleTimeString()
+      ];
+      for (const text of cells) {
+        const cell = document.createElement("td");
+        cell.textContent = text;
+        row.append(cell);
+      }
+      row.dataset.quality = value.quality;
+      return row;
+    })
+  );
+}
 
-requiredButton("#grid-toggle").addEventListener("click", () => {
+function setMode(mode: "designer" | "runtime"): void {
+  runtimeMode = mode === "runtime";
+  required<HTMLButtonElement>("#designer-mode").ariaPressed = String(!runtimeMode);
+  required<HTMLButtonElement>("#runtime-mode").ariaPressed = String(runtimeMode);
+  modeStatus.value = runtimeMode ? "Runtime mode" : "Designer mode";
+  viewer.dataset.mode = mode;
+  if (runtimeMode) void startRuntime();
+  else void stopRuntime();
+}
+
+async function startRuntime(): Promise<void> {
+  try {
+    subscribed = true;
+    await runtime.start();
+    required<HTMLButtonElement>("#subscribe-toggle").textContent = "Unsubscribe";
+    updateRuntimeStatus();
+  } catch (error) {
+    showError(error);
+  }
+}
+
+async function stopRuntime(): Promise<void> {
+  try {
+    subscribed = false;
+    await runtime.stop();
+    required<HTMLButtonElement>("#subscribe-toggle").textContent = "Subscribe";
+    updateRuntimeStatus();
+    const current = serializeDocumentJson(designer.getState().document);
+    if (!current.success || current.json !== serializedDesignJson)
+      showError(new Error("Runtime changed persisted design data."));
+  } catch (error) {
+    showError(error);
+  }
+}
+
+function inspectSelection(): void {
+  const node = documentModel.nodes.find(({ id }) => id === selectedId);
+  const connection = documentModel.connections.find(({ id }) => id === selectedId);
+  const entity = node ?? connection;
+  if (entity === undefined) {
+    entityInspector.textContent = "Select a node or connection.";
+    entityInspector.className = "empty-state";
+    return;
+  }
+  entityInspector.className = "";
+  entityInspector.replaceChildren();
+  const title = document.createElement("strong");
+  title.textContent = entity.name;
+  const details = document.createElement("p");
+  details.textContent =
+    node === undefined
+      ? `Connection · ${connection?.medium ?? "unknown"}`
+      : `${node.symbolType} · layer ${node.layerId}`;
+  entityInspector.append(title, details);
+}
+
+function showAdapterConfiguration(): void {
+  const adapter = datasourceSelect.value;
+  const descriptions: Readonly<Record<string, string>> = {
+    simulator:
+      "Runs locally using the real deterministic Simulator adapter and Data Source Manager.",
+    rest: "HTTPS endpoint, polling interval, method, mapping, and timeout. Configuration preview only.",
+    websocket:
+      "Secure WebSocket URL, subprotocol, heartbeat, and reconnect policy. Configuration preview only.",
+    mqtt: "Requires a browser-capable MQTT-over-WebSocket client or gateway. No credentials are stored.",
+    modbus:
+      "Raw Modbus TCP is unavailable in browsers. Use a secured backend or WebSocket gateway.",
+    opcua: "Native OPC UA transport requires Node.js/backend connectivity. Use a secured gateway."
+  };
+  adapterConfig.textContent = descriptions[adapter] ?? "Unsupported adapter.";
+  const simulator = adapter === "simulator";
+  for (const id of [
+    "#connection-toggle",
+    "#subscribe-toggle",
+    "#pause-toggle",
+    "#runtime-reset",
+    "#quality-toggle",
+    "#state-toggle"
+  ])
+    required<HTMLButtonElement>(id).disabled = !simulator;
+}
+
+function showError(error: unknown): void {
+  errorRegion.textContent = error instanceof Error ? error.message : String(error);
+}
+
+const unsubscribeRuntime = runtime.subscribe(updateRuntimeStatus);
+const unobserveProvider = provider.observe(updateDatasourcePanels);
+updateRuntimeStatus();
+updateDatasourcePanels();
+showAdapterConfiguration();
+void startRuntime();
+
+required<HTMLButtonElement>("#designer-mode").addEventListener("click", () => {
+  setMode("designer");
+});
+required<HTMLButtonElement>("#runtime-mode").addEventListener("click", () => {
+  setMode("runtime");
+});
+required<HTMLButtonElement>("#runtime-start").addEventListener("click", () => {
+  setMode("runtime");
+});
+required<HTMLButtonElement>("#runtime-stop").addEventListener("click", () => {
+  void stopRuntime();
+});
+required<HTMLButtonElement>("#grid-toggle").addEventListener("click", () => {
   showGrid = !showGrid;
   renderer.setOptions({ showGrid });
 });
-requiredButton("#ports-toggle").addEventListener("click", () => {
+required<HTMLButtonElement>("#ports-toggle").addEventListener("click", () => {
   showPorts = !showPorts;
   renderer.setOptions({ showPorts });
 });
-requiredButton("#zoom-in").addEventListener("click", () => {
+required<HTMLButtonElement>("#zoom-in").addEventListener("click", () => {
   renderer.setZoom(renderer.getViewport().zoom * 1.25);
 });
-requiredButton("#zoom-out").addEventListener("click", () => {
+required<HTMLButtonElement>("#zoom-out").addEventListener("click", () => {
   renderer.setZoom(renderer.getViewport().zoom / 1.25);
 });
-requiredButton("#reset").addEventListener("click", () => {
+required<HTMLButtonElement>("#reset").addEventListener("click", () => {
   renderer.resetViewport();
 });
-requiredButton("#fit").addEventListener("click", () => {
+required<HTMLButtonElement>("#fit").addEventListener("click", () => {
   renderer.fitToView(40);
 });
-requiredButton("#state-toggle").addEventListener("click", () => {
-  provider.setAlarm(!provider.alarm);
+required<HTMLButtonElement>("#state-toggle").addEventListener("click", () => {
+  void provider.setAlarm(!provider.alarm);
 });
 let pumpDisabled = false;
-requiredButton("#override-toggle").addEventListener("click", () => {
+required<HTMLButtonElement>("#override-toggle").addEventListener("click", () => {
   pumpDisabled = !pumpDisabled;
   if (pumpDisabled)
     runtime.setVisualOverride("node_feed_pump", {
@@ -123,32 +298,62 @@ requiredButton("#override-toggle").addEventListener("click", () => {
       state: "disabled"
     });
   else runtime.clearVisualOverride("node_feed_pump");
-  requiredButton("#override-toggle").textContent = pumpDisabled ? "Enable pump" : "Disable pump";
+  required<HTMLButtonElement>("#override-toggle").textContent = pumpDisabled
+    ? "Enable pump"
+    : "Disable pump";
 });
-requiredButton("#connection-toggle").addEventListener("click", () => {
-  provider.setAvailable(!provider.available);
-  if (provider.available) void runtime.start();
-  requiredButton("#connection-toggle").textContent = provider.available
-    ? "Disconnect"
-    : "Reconnect";
+required<HTMLButtonElement>("#connection-toggle").addEventListener("click", () => {
+  void (async () => {
+    if (provider.available) {
+      await provider.setAvailable(false);
+      required<HTMLButtonElement>("#connection-toggle").textContent = "Reconnect";
+    } else {
+      await provider.reconnect();
+      required<HTMLButtonElement>("#connection-toggle").textContent = "Disconnect";
+      await runtime.start();
+    }
+  })().catch(showError);
 });
-let uncertain = false;
-requiredButton("#quality-toggle").addEventListener("click", () => {
-  uncertain = !uncertain;
-  provider.setQuality(uncertain ? "uncertain" : "good");
+required<HTMLButtonElement>("#quality-toggle").addEventListener("click", () => {
+  const bad = provider.quality === "good";
+  provider.setQuality(bad ? "bad" : "good");
+  required<HTMLButtonElement>("#quality-toggle").textContent = bad
+    ? "Restore good quality"
+    : "Bad quality";
 });
-requiredButton("#pause-toggle").addEventListener("click", () => {
+required<HTMLButtonElement>("#pause-toggle").addEventListener("click", () => {
   provider.setPaused(!provider.paused);
-  requiredButton("#pause-toggle").textContent = provider.paused ? "Resume" : "Pause";
+  required<HTMLButtonElement>("#pause-toggle").textContent = provider.paused ? "Resume" : "Pause";
 });
-requiredButton("#runtime-reset").addEventListener("click", () => {
+required<HTMLButtonElement>("#runtime-reset").addEventListener("click", () => {
+  provider.reset();
   runtime.clear();
+});
+required<HTMLButtonElement>("#subscribe-toggle").addEventListener("click", () => {
+  if (subscribed) void stopRuntime();
+  else void startRuntime();
+});
+datasourceSelect.addEventListener("change", showAdapterConfiguration);
+required<HTMLButtonElement>("#undo").addEventListener("click", () => {
+  designer.undo();
+});
+required<HTMLButtonElement>("#redo").addEventListener("click", () => {
+  designer.redo();
 });
 
 let pointerId: number | undefined;
 let lastPoint: { readonly x: number; readonly y: number } | undefined;
 viewer.addEventListener("pointerdown", (event) => {
-  if (resolveEntityMetadata(event.target).entityType !== undefined) return;
+  const metadata = resolveEntityMetadata(event.target);
+  if (!runtimeMode && metadata.entityId !== undefined) {
+    selectedId = metadata.nodeId ?? metadata.entityId;
+    if (metadata.entityType === "node" && metadata.nodeId !== undefined)
+      designer.selectNode(metadata.nodeId);
+    else if (metadata.entityType === "connection") designer.selectConnection(metadata.entityId);
+    inspectSelection();
+    return;
+  }
+  if (metadata.entityType !== undefined) return;
   pointerId = event.pointerId;
   lastPoint = { x: event.clientX, y: event.clientY };
   viewer.setPointerCapture(pointerId);
@@ -173,10 +378,17 @@ const observer = new ResizeObserver(([entry]) => {
   if (width > 0 && height > 0) renderer.resize({ width, height });
 });
 observer.observe(viewer);
-window.addEventListener("beforeunload", () => {
+
+async function dispose(): Promise<void> {
   observer.disconnect();
+  unobserveProvider();
   unsubscribeRuntime();
   runtimeRenderPipeline.dispose();
-  void runtime.dispose();
+  designer.dispose();
+  await runtime.dispose();
+  await provider.dispose();
   renderer.dispose();
+}
+window.addEventListener("beforeunload", () => {
+  void dispose();
 });

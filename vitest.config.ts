@@ -31,7 +31,7 @@ export default defineConfig({
     }
   },
   test: {
-    include: ["packages/**/*.test.ts", "tests/**/*.test.ts"],
+    include: ["apps/**/*.test.ts", "packages/**/*.test.ts", "tests/**/*.test.ts"],
     coverage: {
       provider: "v8",
       include: ["packages/interaction-engine/src/**/*.ts"],

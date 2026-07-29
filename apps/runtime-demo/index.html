@@ -3,42 +3,126 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web SCADA — SVG Runtime Viewer</title>
+    <title>Nexora — Phase 9 System Showcase</title>
   </head>
   <body>
     <main class="shell">
       <header>
         <div>
-          <span class="eyebrow">PHASE 6 · RUNTIME ENGINE</span>
-          <h1>Water Treatment Runtime</h1>
+          <span class="eyebrow">PHASE 9 · INTEGRATED SYSTEM SHOWCASE</span>
+          <h1>Water Treatment Control Center</h1>
         </div>
-        <div class="controls" aria-label="Viewer controls">
-          <button id="grid-toggle" type="button">Grid</button>
-          <button id="ports-toggle" type="button">Ports</button>
+        <div class="controls" aria-label="Application controls">
+          <div class="segmented" role="group" aria-label="Application mode">
+            <button id="designer-mode" type="button" aria-pressed="false">Designer</button>
+            <button id="runtime-mode" type="button" aria-pressed="true">Runtime</button>
+          </div>
+          <button id="runtime-start" type="button">Start runtime</button>
+          <button id="runtime-stop" type="button">Stop runtime</button>
           <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
           <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
-          <button id="reset" type="button">Reset</button>
           <button id="fit" type="button">Fit</button>
-          <button id="state-toggle" type="button">Toggle alarm</button>
-          <button id="override-toggle" type="button">Disable pump</button>
-          <button id="quality-toggle" type="button">Toggle quality</button>
-          <button id="pause-toggle" type="button">Pause</button>
-          <button id="runtime-reset" type="button">Reset runtime</button>
-          <button id="connection-toggle" type="button">Disconnect</button>
         </div>
       </header>
-      <section id="viewer" aria-label="SCADA process viewer"></section>
-      <footer>
-        <div class="runtime-summary">
-          <output id="runtime-status">IDLE</output>
-          <output id="tag-status">0 / 0 tags · revision 0</output>
-          <output id="diagnostic-status">No diagnostics</output>
-        </div>
-        <div>
-          <output id="viewport-status">x 0 · y 0 · 100%</output>
-          <span> · Drag the background to pan</span>
-        </div>
-      </footer>
+
+      <section class="workspace">
+        <aside class="panel left-panel" aria-label="Demo configuration">
+          <section>
+            <h2>Sample</h2>
+            <label for="sample-select">Document</label>
+            <select id="sample-select">
+              <option value="water">Water treatment process</option>
+            </select>
+            <output id="document-status" class="status-line" aria-live="polite"
+              >Validated · schema 1.0.0 · 18 nodes</output
+            >
+          </section>
+
+          <section>
+            <h2>Datasource</h2>
+            <label for="datasource-select">Adapter</label>
+            <select id="datasource-select">
+              <option value="simulator">Simulator — browser ready</option>
+              <option value="rest">REST — configuration preview</option>
+              <option value="websocket">WebSocket — configuration preview</option>
+              <option value="mqtt">MQTT — requires browser client/gateway</option>
+              <option value="modbus">Modbus — requires TCP gateway</option>
+              <option value="opcua">OPC UA — requires backend gateway</option>
+            </select>
+            <div id="adapter-config" class="adapter-config"></div>
+            <div class="button-grid">
+              <button id="connection-toggle" type="button">Disconnect</button>
+              <button id="subscribe-toggle" type="button">Unsubscribe</button>
+              <button id="pause-toggle" type="button">Pause</button>
+              <button id="runtime-reset" type="button">Reset runtime</button>
+              <button id="quality-toggle" type="button">Bad quality</button>
+              <button id="state-toggle" type="button">Toggle alarm</button>
+            </div>
+          </section>
+
+          <section>
+            <h2>Viewer</h2>
+            <div class="button-grid">
+              <button id="grid-toggle" type="button">Grid</button>
+              <button id="ports-toggle" type="button">Ports</button>
+              <button id="reset" type="button">Reset view</button>
+              <button id="override-toggle" type="button">Disable pump</button>
+              <button id="undo" type="button" disabled>Undo</button>
+              <button id="redo" type="button" disabled>Redo</button>
+            </div>
+          </section>
+        </aside>
+
+        <section class="canvas-column">
+          <div class="canvas-heading">
+            <output id="mode-status">Runtime mode</output>
+            <output id="viewport-status">x 0 · y 0 · 100%</output>
+          </div>
+          <section
+            id="viewer"
+            tabindex="0"
+            aria-label="Interactive water treatment SCADA canvas"
+          ></section>
+          <div class="runtime-summary" aria-live="polite">
+            <output id="runtime-status">IDLE</output>
+            <output id="tag-status">0 / 0 tags · revision 0</output>
+            <output id="diagnostic-status">No diagnostics</output>
+          </div>
+        </section>
+
+        <aside class="panel right-panel" aria-label="Runtime and entity inspector">
+          <section>
+            <h2>Selected entity</h2>
+            <div id="entity-inspector" class="empty-state">Select a node or connection.</div>
+          </section>
+
+          <section>
+            <h2>Datasource diagnostics</h2>
+            <dl id="datasource-diagnostics" class="diagnostic-grid"></dl>
+          </section>
+
+          <section class="value-section">
+            <div class="section-heading">
+              <h2>Runtime values</h2>
+              <output id="value-count">0 values</output>
+            </div>
+            <div class="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tag</th>
+                    <th>Value</th>
+                    <th>Quality</th>
+                    <th>Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="runtime-values"></tbody>
+              </table>
+            </div>
+          </section>
+        </aside>
+      </section>
+      <div id="error-region" role="alert" aria-live="assertive"></div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

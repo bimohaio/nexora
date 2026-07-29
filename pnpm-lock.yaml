@@ -75,6 +75,15 @@ importers:
       '@web-scada/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@web-scada/datasource-core':
+        specifier: workspace:*
+        version: link:../../packages/datasource-core
+      '@web-scada/datasource-simulator':
+        specifier: workspace:*
+        version: link:../../packages/datasource-simulator
+      '@web-scada/designer-engine':
+        specifier: workspace:*
+        version: link:../../packages/designer-engine
       '@web-scada/renderer-svg':
         specifier: workspace:*
         version: link:../../packages/renderer-svg
