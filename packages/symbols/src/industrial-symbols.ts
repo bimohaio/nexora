@@ -6,6 +6,7 @@ import type {
   SymbolRuntimeCapability,
   SymbolState
 } from "./symbol.js";
+import { defineSymbolPack, type SymbolPack } from "./architecture.js";
 
 const ALL_OPERATIONAL_STATES: readonly SymbolState[] = [
   "normal",
@@ -129,6 +130,7 @@ function industrialSymbol(options: IndustrialSymbolOptions): SymbolDefinition {
   const states = options.states ?? ALL_OPERATIONAL_STATES;
   return {
     type: options.type,
+    version: 1,
     displayNameKey: `symbols.${options.type}`,
     descriptionKey: `symbols.${options.type}.description`,
     category: options.category,
@@ -144,6 +146,15 @@ function industrialSymbol(options: IndustrialSymbolOptions): SymbolDefinition {
     ],
     supportedStates: states,
     runtimeCapabilities: options.capabilities ?? ALL_RUNTIME_CAPABILITIES,
+    capabilities: [
+      "resizable",
+      "rotatable",
+      "connectable",
+      "runtime-bindable",
+      "supports-state",
+      "alarm-visual-compatible"
+    ],
+    tags: [options.category, "industrial"],
     aliases: options.aliases ?? [`industrial.${name}`]
   };
 }
@@ -185,7 +196,12 @@ export const INDUSTRIAL_SYMBOL_TYPES = {
   hmi: "network-control.hmi",
   gateway: "network-control.gateway",
   server: "network-control.server",
-  networkSwitch: "network-control.network-switch"
+  networkSwitch: "network-control.network-switch",
+  lamp: "control.indicator.lamp",
+  encoder: "instrumentation.encoder.rotary",
+  limitSwitch: "control.limit-switch",
+  relay: "electrical.relay",
+  vfd: "automation.vfd"
 } as const;
 
 const sensorProperties: readonly PropertyMetadata[] = [
@@ -507,5 +523,157 @@ export const INDUSTRIAL_SYMBOLS: readonly SymbolDefinition[] = [
     width: 150,
     height: 72,
     ports: [...NETWORK_PORTS, port("uplink", "Uplink", 0.5, 0, "bidirectional", "network")]
+  }),
+  industrialSymbol({
+    type: INDUSTRIAL_SYMBOL_TYPES.lamp,
+    category: "indicator",
+    width: 64,
+    height: 64,
+    ports: [port("signal", "Signal", 0, 0.5, "input", "signal")],
+    aliases: ["lamp", "industrial.lamp"],
+    states: ["normal", "active", "inactive", "warning", "offline", "disabled"],
+    capabilities: ["active", "inactive", "warning", "offline", "disabled", "value"],
+    properties: [
+      { key: "offColor", labelKey: "properties.offColor", kind: "color", defaultValue: "#64748b" },
+      { key: "onColor", labelKey: "properties.onColor", kind: "color", defaultValue: "#22c55e" },
+      { key: "showLabel", labelKey: "properties.showLabel", kind: "boolean", defaultValue: true }
+    ]
+  }),
+  industrialSymbol({
+    type: INDUSTRIAL_SYMBOL_TYPES.encoder,
+    category: "instrumentation",
+    width: 88,
+    height: 88,
+    ports: SIGNAL_PORTS,
+    aliases: ["encoder", "industrial.encoder"],
+    capabilities: [...ALL_RUNTIME_CAPABILITIES, "value", "text", "direction"],
+    properties: [
+      {
+        key: "resolution",
+        labelKey: "properties.resolution",
+        kind: "number",
+        defaultValue: 1024,
+        minimum: 1
+      },
+      { key: "unit", labelKey: "properties.unit", kind: "unit", defaultValue: "pulse" },
+      { key: "showValue", labelKey: "properties.showValue", kind: "boolean", defaultValue: true }
+    ]
+  }),
+  industrialSymbol({
+    type: INDUSTRIAL_SYMBOL_TYPES.limitSwitch,
+    category: "safety",
+    width: 92,
+    height: 58,
+    ports: ELECTRICAL_PORTS,
+    aliases: ["limit-switch"],
+    states: ["normal", "active", "inactive", "offline", "disabled"],
+    capabilities: ["active", "inactive", "offline", "disabled"],
+    properties: [
+      {
+        key: "normallyOpen",
+        labelKey: "properties.normallyOpen",
+        kind: "boolean",
+        defaultValue: true
+      },
+      {
+        key: "actuatorColor",
+        labelKey: "properties.actuatorColor",
+        kind: "color",
+        defaultValue: "#e2e8f0"
+      }
+    ]
+  }),
+  industrialSymbol({
+    type: INDUSTRIAL_SYMBOL_TYPES.relay,
+    category: "electrical",
+    width: 112,
+    height: 78,
+    ports: ELECTRICAL_PORTS,
+    aliases: ["relay"],
+    states: ["normal", "active", "inactive", "offline", "disabled"],
+    capabilities: ["active", "inactive", "offline", "disabled"],
+    properties: [
+      {
+        key: "coilVoltage",
+        labelKey: "properties.coilVoltage",
+        kind: "number",
+        defaultValue: 24,
+        minimum: 0
+      },
+      {
+        key: "contactType",
+        labelKey: "properties.contactType",
+        kind: "select",
+        defaultValue: "normally-open",
+        options: [
+          { value: "normally-open", labelKey: "contactTypes.normallyOpen" },
+          { value: "normally-closed", labelKey: "contactTypes.normallyClosed" }
+        ]
+      }
+    ]
+  }),
+  industrialSymbol({
+    type: INDUSTRIAL_SYMBOL_TYPES.vfd,
+    category: "network-control",
+    width: 126,
+    height: 104,
+    ports: [...ELECTRICAL_PORTS, port("control", "Control", 0.5, 1, "input", "signal")],
+    aliases: ["vfd", "industrial.vfd"],
+    capabilities: [...ALL_RUNTIME_CAPABILITIES, "value", "text", "speed"],
+    properties: [
+      {
+        key: "ratedPower",
+        labelKey: "properties.ratedPower",
+        kind: "number",
+        defaultValue: 7.5,
+        minimum: 0
+      },
+      {
+        key: "ratedVoltage",
+        labelKey: "properties.ratedVoltage",
+        kind: "number",
+        defaultValue: 400,
+        minimum: 0
+      },
+      {
+        key: "showFrequency",
+        labelKey: "properties.showFrequency",
+        kind: "boolean",
+        defaultValue: true
+      }
+    ]
   })
 ];
+
+function pack(
+  id: string,
+  displayName: string,
+  categories: readonly SymbolCategory[]
+): Readonly<SymbolPack> {
+  return defineSymbolPack({
+    id,
+    version: "1.0.0",
+    displayName,
+    definitions: INDUSTRIAL_SYMBOLS.filter(({ category }) => categories.includes(category))
+  });
+}
+
+export const standardProcessPack = pack("standard-process", "Standard Process", ["process"]);
+export const standardInstrumentationPack = pack(
+  "standard-instrumentation",
+  "Standard Instrumentation",
+  ["instrumentation", "indicator"]
+);
+export const standardElectricalPack = pack("standard-electrical", "Standard Electrical", [
+  "electrical"
+]);
+export const standardControlPack = pack("standard-control", "Standard Control", [
+  "network-control",
+  "safety"
+]);
+export const standardIndustrialPack = defineSymbolPack({
+  id: "standard-industrial",
+  version: "1.0.0",
+  displayName: "Standard Industrial Symbols",
+  definitions: INDUSTRIAL_SYMBOLS
+});

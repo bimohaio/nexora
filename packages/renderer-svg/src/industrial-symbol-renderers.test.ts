@@ -79,12 +79,23 @@ function requiredNode(source: ScadaDocument, index: number): ScadaNode {
 }
 
 describe("industrial SVG symbol visuals", () => {
+  it("keeps the generic and SVG registries consistent", () => {
+    const symbols = createIndustrialSymbolRegistry();
+    const visuals = createInitialSvgSymbolRendererRegistry();
+    expect(visuals.validateAgainst(symbols)).toEqual({
+      valid: true,
+      missingVisuals: [],
+      orphanVisuals: []
+    });
+    expect(Object.isFrozen(visuals.list())).toBe(true);
+  });
+
   it("creates and updates every industrial visual in node-local coordinates", () => {
     const renderer = createSvgRenderer({ symbols: createIndustrialSymbolRegistry() });
     renderer.mount(container());
     const source = catalogDocument();
     renderer.renderDocument(source);
-    expect(renderer.getSvgElement()?.querySelectorAll("[data-scada-symbol]")).toHaveLength(37);
+    expect(renderer.getSvgElement()?.querySelectorAll("[data-scada-symbol]")).toHaveLength(42);
     for (const [index, definition] of INDUSTRIAL_SYMBOLS.entries()) {
       const node = renderer.getElementForNode(`node_${String(index)}`);
       const visual = node?.querySelector<SVGGElement>("g[data-scada-symbol]");

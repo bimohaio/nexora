@@ -3,8 +3,12 @@ import type { SymbolState } from "@web-scada/symbols";
 import type {
   SvgSymbolRenderContext,
   SvgSymbolRenderer,
-  SvgSymbolRendererRegistry
+  SvgSymbolRendererRegistry,
+  SvgSymbolRegistryValidationResult,
+  SvgSymbolVisualDefinition,
+  SvgSymbolVisualPack
 } from "./contracts.js";
+import type { SymbolRegistry } from "@web-scada/symbols";
 import { createSvgElement, synchronizeSvgElement } from "./dom.js";
 import { registerIndustrialSvgSymbolRenderers } from "./industrial-symbol-renderers.js";
 
@@ -237,12 +241,51 @@ export class InMemorySvgSymbolRendererRegistry implements SvgSymbolRendererRegis
   readonly #renderers = new Map<string, SvgSymbolRenderer>();
 
   public register(symbolType: string, renderer: SvgSymbolRenderer): void {
+    if (this.#renderers.has(symbolType))
+      throw new Error(`SVG symbol renderer is already registered: ${symbolType}`);
     this.#renderers.set(symbolType, renderer);
+  }
+
+  public registerMany(definitions: readonly SvgSymbolVisualDefinition[]): void {
+    for (const definition of definitions) this.register(definition.symbolType, definition.renderer);
   }
 
   public get(symbolType: string): SvgSymbolRenderer | undefined {
     return this.#renderers.get(symbolType);
   }
+
+  public has(symbolType: string): boolean {
+    return this.#renderers.has(symbolType);
+  }
+
+  public list(): readonly SvgSymbolVisualDefinition[] {
+    return Object.freeze(
+      [...this.#renderers].map(([symbolType, renderer]) => Object.freeze({ symbolType, renderer }))
+    );
+  }
+
+  public validateAgainst(symbols: SymbolRegistry): SvgSymbolRegistryValidationResult {
+    const genericTypes = new Set(symbols.getAll().map(({ type }) => type));
+    const missingVisuals = [...genericTypes].filter((type) => !this.#renderers.has(type));
+    const orphanVisuals = [...this.#renderers.keys()].filter((type) => !genericTypes.has(type));
+    return Object.freeze({
+      valid: missingVisuals.length === 0 && orphanVisuals.length === 0,
+      missingVisuals: Object.freeze(missingVisuals),
+      orphanVisuals: Object.freeze(orphanVisuals)
+    });
+  }
+}
+
+export function defineSvgSymbolVisualPack<T extends SvgSymbolVisualPack>(pack: T): Readonly<T> {
+  return Object.freeze({ ...pack, definitions: Object.freeze([...pack.definitions]) });
+}
+
+export function registerSvgSymbolVisualPack(
+  registry: SvgSymbolRendererRegistry,
+  pack: SvgSymbolVisualPack
+): void {
+  for (const definition of pack.definitions)
+    registry.register(definition.symbolType, definition.renderer);
 }
 
 export function createInitialSvgSymbolRendererRegistry(): InMemorySvgSymbolRendererRegistry {

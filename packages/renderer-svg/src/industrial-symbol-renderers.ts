@@ -89,7 +89,12 @@ const DESCRIPTORS: Readonly<Record<string, IndustrialVisualDescriptor>> = {
   [INDUSTRIAL_SYMBOL_TYPES.hmi]: { glyph: "control", code: "HMI" },
   [INDUSTRIAL_SYMBOL_TYPES.gateway]: { glyph: "control", code: "GW" },
   [INDUSTRIAL_SYMBOL_TYPES.server]: { glyph: "control", code: "SRV" },
-  [INDUSTRIAL_SYMBOL_TYPES.networkSwitch]: { glyph: "control", code: "SW" }
+  [INDUSTRIAL_SYMBOL_TYPES.networkSwitch]: { glyph: "control", code: "SW" },
+  [INDUSTRIAL_SYMBOL_TYPES.lamp]: { glyph: "instrument", code: "L", accent: "#22c55e" },
+  [INDUSTRIAL_SYMBOL_TYPES.encoder]: { glyph: "instrument", code: "ENC" },
+  [INDUSTRIAL_SYMBOL_TYPES.limitSwitch]: { glyph: "switch", code: "LS" },
+  [INDUSTRIAL_SYMBOL_TYPES.relay]: { glyph: "switch", code: "R" },
+  [INDUSTRIAL_SYMBOL_TYPES.vfd]: { glyph: "control", code: "VFD" }
 };
 
 function propertyString(context: SvgSymbolRenderContext, key: string, fallback: string): string {

@@ -6,3 +6,4 @@ export * from "./errors.js";
 export * from "./industrial-symbol-renderers.js";
 export * from "./renderer.js";
 export * from "./symbol-renderers.js";
+export * from "./symbol-environment.js";

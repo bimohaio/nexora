@@ -128,7 +128,28 @@ export interface SvgSymbolRenderer {
 
 export interface SvgSymbolRendererRegistry {
   register(symbolType: string, renderer: SvgSymbolRenderer): void;
+  registerMany?(definitions: readonly SvgSymbolVisualDefinition[]): void;
   get(symbolType: string): SvgSymbolRenderer | undefined;
+  has?(symbolType: string): boolean;
+  list?(): readonly SvgSymbolVisualDefinition[];
+  validateAgainst?(symbols: SymbolRegistry): SvgSymbolRegistryValidationResult;
+}
+
+export interface SvgSymbolVisualDefinition {
+  readonly symbolType: string;
+  readonly renderer: SvgSymbolRenderer;
+}
+
+export interface SvgSymbolVisualPack {
+  readonly id: string;
+  readonly version: string;
+  readonly definitions: readonly SvgSymbolVisualDefinition[];
+}
+
+export interface SvgSymbolRegistryValidationResult {
+  readonly valid: boolean;
+  readonly missingVisuals: readonly string[];
+  readonly orphanVisuals: readonly string[];
 }
 
 export interface SvgRendererDependencies {

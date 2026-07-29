@@ -26,6 +26,20 @@ export type SymbolRuntimeCapability =
   | "rotation"
   | "animation";
 
+export type SymbolCapability =
+  | "resizable"
+  | "rotatable"
+  | "connectable"
+  | "text-editable"
+  | "runtime-bindable"
+  | "supports-state"
+  | "supports-value"
+  | "supports-direction"
+  | "supports-level"
+  | "supports-open-percentage"
+  | "animation-compatible"
+  | "alarm-visual-compatible";
+
 export type BuiltInSymbolCategory =
   | "basic"
   | "equipment"
@@ -79,6 +93,7 @@ export interface BindablePropertyMetadata {
 
 export interface SymbolDefinition {
   readonly type: string;
+  readonly version?: number;
   readonly displayNameKey: string;
   readonly category: SymbolCategory;
   readonly descriptionKey?: string;
@@ -91,9 +106,18 @@ export interface SymbolDefinition {
   readonly bindableProperties: readonly BindablePropertyMetadata[];
   readonly supportedStates: readonly SymbolState[];
   readonly runtimeCapabilities?: readonly SymbolRuntimeCapability[];
+  readonly capabilities?: readonly SymbolCapability[];
+  readonly tags?: readonly string[];
+  readonly presets?: readonly SymbolPreset[];
   readonly aliases?: readonly string[];
   readonly deprecation?: SymbolDeprecation;
   readonly metadata?: ExtensionData;
+}
+
+export interface SymbolPreset {
+  readonly id: string;
+  readonly displayNameKey: string;
+  readonly properties: Readonly<Record<string, JsonValue>>;
 }
 
 export interface SymbolDeprecation {
@@ -111,10 +135,36 @@ export interface SymbolRegistry {
   registerMany(definitions: readonly SymbolDefinition[], options?: RegisterOptions): void;
   unregister(type: string): boolean;
   get(type: string): SymbolDefinition | undefined;
+  require(type: string): SymbolDefinition;
   has(type: string): boolean;
   getAll(): readonly SymbolDefinition[];
+  list(): readonly SymbolDefinition[];
   getByCategory(category: string): readonly SymbolDefinition[];
+  listByCategory(category: string): readonly SymbolDefinition[];
+  resolveType(typeOrAlias: string): string | undefined;
+  search(query: SymbolSearchQuery): readonly SymbolDefinition[];
+  validate(): SymbolRegistryValidationResult;
   clear(): void;
+}
+
+export interface SymbolSearchQuery {
+  readonly text?: string;
+  readonly category?: string;
+  readonly capability?: SymbolCapability | SymbolRuntimeCapability;
+  readonly tag?: string;
+  readonly includeDeprecated?: boolean;
+}
+
+export interface SymbolRegistryDiagnostic {
+  readonly severity: "error" | "warning";
+  readonly code: string;
+  readonly symbolType?: string;
+  readonly message: string;
+}
+
+export interface SymbolRegistryValidationResult {
+  readonly valid: boolean;
+  readonly diagnostics: readonly SymbolRegistryDiagnostic[];
 }
 
 export interface AliasAwareSymbolRegistry extends SymbolRegistry {
@@ -149,6 +199,18 @@ function validateDefinition(definition: SymbolDefinition): void {
     if (!isNormalizedPoint(port.position)) throw new Error(`Invalid port position: ${port.id}`);
     if (port.maxConnections !== undefined && port.maxConnections <= 0)
       throw new Error(`Port maxConnections must be positive: ${port.id}`);
+  }
+  const propertyKeys = new Set<string>();
+  for (const property of definition.editableProperties) {
+    if (propertyKeys.has(property.key))
+      throw new Error(`Duplicate property key: ${definition.type}:${property.key}`);
+    propertyKeys.add(property.key);
+    if (
+      typeof property.defaultValue === "number" &&
+      ((property.minimum !== undefined && property.defaultValue < property.minimum) ||
+        (property.maximum !== undefined && property.defaultValue > property.maximum))
+    )
+      throw new Error(`Property default is out of range: ${definition.type}:${property.key}`);
   }
   const supportedStates = new Set(definition.supportedStates);
   if (supportedStates.size !== definition.supportedStates.length)
@@ -220,16 +282,88 @@ export class InMemorySymbolRegistry implements AliasAwareSymbolRegistry {
     return canonicalType === undefined ? undefined : this.#definitions.get(canonicalType);
   }
 
+  public require(type: string): SymbolDefinition {
+    const definition = this.get(type);
+    if (definition === undefined) throw new Error(`Unknown symbol type: ${type}`);
+    return definition;
+  }
+
   public has(type: string): boolean {
     return this.getCanonicalType(type) !== undefined;
   }
 
   public getAll(): readonly SymbolDefinition[] {
-    return [...this.#definitions.values()];
+    return Object.freeze([...this.#definitions.values()]);
+  }
+
+  public list(): readonly SymbolDefinition[] {
+    return this.getAll();
   }
 
   public getByCategory(category: string): readonly SymbolDefinition[] {
-    return this.getAll().filter((definition) => definition.category === category);
+    return Object.freeze(this.getAll().filter((definition) => definition.category === category));
+  }
+
+  public listByCategory(category: string): readonly SymbolDefinition[] {
+    return this.getByCategory(category);
+  }
+
+  public resolveType(typeOrAlias: string): string | undefined {
+    return this.getCanonicalType(typeOrAlias);
+  }
+
+  public search(query: SymbolSearchQuery): readonly SymbolDefinition[] {
+    const text = query.text?.trim().toLocaleLowerCase();
+    return Object.freeze(
+      this.getAll().filter((definition) => {
+        if (query.includeDeprecated !== true && definition.deprecation?.deprecated === true)
+          return false;
+        if (query.category !== undefined && definition.category !== query.category) return false;
+        if (
+          query.capability !== undefined &&
+          !definition.capabilities?.includes(query.capability as SymbolCapability) &&
+          !definition.runtimeCapabilities?.includes(query.capability as SymbolRuntimeCapability)
+        )
+          return false;
+        if (query.tag !== undefined && !definition.tags?.includes(query.tag)) return false;
+        if (text === undefined || text === "") return true;
+        return [
+          definition.type,
+          definition.displayNameKey,
+          definition.descriptionKey ?? "",
+          ...(definition.aliases ?? []),
+          ...(definition.tags ?? [])
+        ].some((value) => value.toLocaleLowerCase().includes(text));
+      })
+    );
+  }
+
+  public validate(): SymbolRegistryValidationResult {
+    const diagnostics: SymbolRegistryDiagnostic[] = [];
+    for (const definition of this.#definitions.values()) {
+      try {
+        validateDefinition(definition);
+      } catch (error) {
+        diagnostics.push({
+          severity: "error",
+          code: "invalid-definition",
+          symbolType: definition.type,
+          message: error instanceof Error ? error.message : String(error)
+        });
+      }
+      const replacement = definition.deprecation?.replacedBy;
+      if (replacement !== undefined && !this.has(replacement))
+        diagnostics.push({
+          severity: "warning",
+          code: "missing-deprecation-replacement",
+          symbolType: definition.type,
+          message: `Deprecation replacement is not registered: ${replacement}`
+        });
+    }
+    return Object.freeze({
+      valid: !diagnostics.some(({ severity }) => severity === "error"),
+      diagnostics: Object.freeze(diagnostics)
+    });
   }
 
   public getCanonicalType(typeOrAlias: string): string | undefined {

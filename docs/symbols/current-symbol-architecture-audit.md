@@ -1,0 +1,16 @@
+# Current symbol architecture audit
+
+| Component          | Current responsibility                | Package               | Public API             | Dependencies      | Hard-coded behavior                                 | Compatibility risk                  | Required refactor                                      |
+| ------------------ | ------------------------------------- | --------------------- | ---------------------- | ----------------- | --------------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| Symbol metadata    | Properties, ports, states and aliases | `symbols`             | `SymbolDefinition`     | Core, geometry    | Complete built-in arrays                            | Existing IDs and flat properties    | Preserve definitions; expose optional packs            |
+| Symbol registry    | Lookup and alias resolution           | `symbols`             | `SymbolRegistry`       | Symbol metadata   | Category filtering scanned the catalog              | Duplicate/alias behavior is public  | Add indexed-ready query and validation APIs additively |
+| SVG visuals        | Create/update/dispose SVG groups      | `renderer-svg`        | `SvgSymbolRenderer`    | Core, symbols     | Descriptor catalog at renderer composition boundary | DOM identity during runtime updates | Keep dispatch registry-driven; validate catalogs       |
+| Designer palette   | Lists injected registry               | demo composition root | `SymbolRegistry`       | Designer, symbols | Demo chooses complete catalog                       | Palette parity                      | Continue deriving entries from injected registry       |
+| Property inspector | Converts property metadata to fields  | `designer-engine`     | binding authoring APIs | Symbols           | No per-symbol type switch found                     | Property keys are persisted         | Preserve flat names and metadata                       |
+| Runtime            | Resolves generic visual properties    | `runtime-engine`      | visual resolver        | Symbols contracts | No individual symbol imports found                  | Bind target compatibility           | Keep symbol-neutral                                    |
+| Binding            | Generic visual target resolution      | `binding-engine`      | visual properties      | Runtime contracts | Target set, not symbol-type switch                  | Unsupported targets                 | Continue validating generic targets                    |
+| Data sources       | Normalize protocol values             | datasource packages   | adapter contracts      | datasource-core   | No symbol imports found                             | Boundary regression                 | Covered by architecture audit                          |
+| Gallery            | Renders injected registry entries     | `symbol-gallery`      | mount controller       | symbols, renderer | Complete-pack choice in composition root            | Optional pack visibility            | Registry remains the only catalog                      |
+
+No renderer/designer/runtime symbol-type dispatch switch was found. The industrial SVG descriptor
+map is registration metadata in the renderer package, not engine dispatch logic.

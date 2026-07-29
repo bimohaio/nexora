@@ -4,6 +4,9 @@ import {
   INDUSTRIAL_SYMBOLS,
   InMemorySymbolRegistry,
   createIndustrialSymbolRegistry,
+  createStandardSymbolCategoryRegistry,
+  registerSymbolPack,
+  standardInstrumentationPack,
   type SymbolDefinition
 } from "./index.js";
 
@@ -100,7 +103,7 @@ describe("InMemorySymbolRegistry", () => {
 
   it("provides a complete renderer-independent industrial catalog", () => {
     const registry = createIndustrialSymbolRegistry();
-    expect(INDUSTRIAL_SYMBOLS).toHaveLength(37);
+    expect(INDUSTRIAL_SYMBOLS).toHaveLength(42);
     for (const category of [
       "process",
       "instrumentation",
@@ -122,5 +125,38 @@ describe("InMemorySymbolRegistry", () => {
       }
       expect(JSON.stringify(symbol)).not.toMatch(/SVG|HTMLElement|Document/);
     }
+  });
+
+  it("supports immutable search, validation, categories, and optional packs", () => {
+    const registry = new InMemorySymbolRegistry();
+    registerSymbolPack(registry, standardInstrumentationPack);
+    expect(registry.resolveType("encoder")).toBe("instrumentation.encoder.rotary");
+    expect(registry.require("encoder").type).toBe("instrumentation.encoder.rotary");
+    expect(registry.search({ text: "encoder" }).map(({ type }) => type)).toContain(
+      "instrumentation.encoder.rotary"
+    );
+    expect(registry.search({ capability: "direction" })).toHaveLength(1);
+    expect(Object.isFrozen(registry.list())).toBe(true);
+    expect(registry.validate()).toEqual({ valid: true, diagnostics: [] });
+
+    const categories = createStandardSymbolCategoryRegistry();
+    expect(categories.get("instrumentation")?.displayName).toBe("Instrumentation");
+    expect(categories.validate()).toEqual([]);
+  });
+
+  it("keeps large registry lookup and category queries deterministic", () => {
+    const registry = new InMemorySymbolRegistry();
+    registry.registerMany(
+      Array.from({ length: 500 }, (_, index) => ({
+        ...definition,
+        type: `performance.symbol-${String(index)}`,
+        aliases: [`legacy.symbol-${String(index)}`]
+      }))
+    );
+    expect(registry.list()).toHaveLength(500);
+    expect(registry.require("legacy.symbol-499").type).toBe("performance.symbol-499");
+    expect(registry.listByCategory("indicator")).toHaveLength(500);
+    expect(registry.search({ text: "symbol-49" })).toHaveLength(11);
+    expect(registry.validate().valid).toBe(true);
   });
 });
