@@ -205,6 +205,12 @@ importers:
 
   packages/designer-engine:
     dependencies:
+      '@web-scada/alarm-visualization':
+        specifier: workspace:*
+        version: link:../alarm-visualization
+      '@web-scada/animation-engine':
+        specifier: workspace:*
+        version: link:../animation-engine
       '@web-scada/binding-engine':
         specifier: workspace:*
         version: link:../binding-engine
@@ -231,6 +237,12 @@ importers:
 
   packages/renderer-svg:
     dependencies:
+      '@web-scada/alarm-visualization':
+        specifier: workspace:*
+        version: link:../alarm-visualization
+      '@web-scada/animation-engine':
+        specifier: workspace:*
+        version: link:../animation-engine
       '@web-scada/core':
         specifier: workspace:*
         version: link:../core

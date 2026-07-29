@@ -11,6 +11,7 @@ import type {
 import type { SymbolRegistry } from "@web-scada/symbols";
 import { createSvgElement, synchronizeSvgElement } from "./dom.js";
 import { registerIndustrialSvgSymbolRenderers } from "./industrial-symbol-renderers.js";
+import { registerCompositeSvgSymbolRenderers } from "./composite-symbol-renderers.js";
 
 function stringProperty(context: SvgSymbolRenderContext, key: string, fallback: string): string {
   const value = context.node.properties[key];
@@ -32,18 +33,14 @@ export function runtimeStateClass(state: SymbolState): string {
 }
 
 function stateColor(state: SymbolState, fallback: string): string {
-  const colors: Readonly<Record<SymbolState, string>> = {
-    normal: fallback,
-    active: "#22c55e",
-    inactive: "#64748b",
-    running: "#22c55e",
-    stopped: "#64748b",
-    warning: "#f59e0b",
-    alarm: "#ef4444",
-    offline: "#94a3b8",
-    disabled: "#cbd5e1"
-  };
-  return colors[state];
+  if (["active", "running", "open", "on", "automatic", "remote"].includes(state)) return "#22c55e";
+  if (["warning", "starting", "stopping", "opening", "closing", "maintenance"].includes(state))
+    return "#f59e0b";
+  if (["alarm", "fault", "communication-lost"].includes(state)) return "#ef4444";
+  if (["offline", "unavailable", "unknown"].includes(state)) return "#94a3b8";
+  if (state === "disabled") return "#cbd5e1";
+  if (["inactive", "stopped", "closed", "off", "manual", "local"].includes(state)) return "#64748b";
+  return fallback;
 }
 
 function styleShape(element: SVGElement, context: SvgSymbolRenderContext): void {
@@ -299,6 +296,7 @@ export function createInitialSvgSymbolRendererRegistry(): InMemorySvgSymbolRende
   registry.register("equipment.sensor", sensorRenderer);
   registry.register("equipment.indicator", indicatorRenderer);
   registerIndustrialSvgSymbolRenderers(registry);
+  registerCompositeSvgSymbolRenderers(registry);
   return registry;
 }
 

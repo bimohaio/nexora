@@ -1,5 +1,5 @@
 import type { ConnectionStyle, JsonValue, PropertyBinding, ScadaDocument } from "@web-scada/core";
-import type { SymbolRegistry, SymbolState } from "@web-scada/symbols";
+import { SYMBOL_STATES, type SymbolRegistry, type SymbolState } from "@web-scada/symbols";
 import {
   type BindingEvaluator,
   type DataQuality,
@@ -15,17 +15,6 @@ import {
 } from "./contracts.js";
 import { RuntimeSymbolVisualStateResolver } from "./symbol-visual-resolver.js";
 
-const SYMBOL_STATES: readonly SymbolState[] = [
-  "normal",
-  "active",
-  "inactive",
-  "running",
-  "stopped",
-  "warning",
-  "alarm",
-  "offline",
-  "disabled"
-];
 const QUALITY_ORDER: Readonly<Record<DataQuality, number>> = {
   good: 0,
   uncertain: 1,

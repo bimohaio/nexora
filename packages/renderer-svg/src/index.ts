@@ -1,5 +1,6 @@
 export * from "./calculations.js";
 export * from "./contracts.js";
+export * from "./composite-symbol-renderers.js";
 export * from "./accessibility.js";
 export * from "./dom.js";
 export * from "./errors.js";

@@ -69,7 +69,8 @@ body {
 }
 
 button,
-select {
+select,
+input {
   min-height: 2.6rem;
   padding: 0.55rem 0.8rem;
   border: 1px solid #28516a;
@@ -84,8 +85,30 @@ button {
 }
 
 button:hover,
-select:hover {
+select:hover,
+input:hover {
   border-color: #38bdf8;
+}
+
+:root[data-theme="light"] {
+  color: #0f172a;
+  background: #f8fafc;
+}
+
+:root[data-theme="light"] body {
+  background: #f8fafc;
+}
+
+:root[data-theme="light"] .gallery-header {
+  background: rgb(248 250 252 / 94%);
+}
+
+:root[data-theme="light"] .symbol-card {
+  background: #fff;
+}
+
+:root[data-theme="light"] .symbol-card h3 {
+  color: #0f172a;
 }
 
 #gallery {

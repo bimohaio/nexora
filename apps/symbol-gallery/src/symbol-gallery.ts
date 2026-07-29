@@ -2,6 +2,7 @@ import { createEmptyChangeSet, type ScadaDocument, type ScadaNode } from "@web-s
 import { createSvgRenderer, type SvgRenderer } from "@web-scada/renderer-svg";
 import {
   createIndustrialSymbolRegistry,
+  createStandardSymbolCategoryRegistry,
   type SymbolDefinition,
   type SymbolState
 } from "@web-scada/symbols";
@@ -12,17 +13,29 @@ const PREVIEW_HEIGHT = 170;
 export interface SymbolGalleryController {
   setState(state: string): void;
   setMinimumSize(enabled: boolean): void;
+  setSearch(query: string): void;
+  setCategory(category: string): void;
+  setVariant(variant: string): void;
+  setRotation(rotation: number): void;
+  setTheme(theme: "dark" | "light"): void;
   dispose(): void;
 }
 
 interface Preview {
   readonly definition: SymbolDefinition;
-  readonly renderer: SvgRenderer;
+  readonly card: HTMLElement;
+  readonly viewer: HTMLElement;
   readonly defaultDocument: ScadaDocument;
+  renderer?: SvgRenderer;
   state: SymbolState;
 }
 
-function previewNode(definition: SymbolDefinition, useMinimumSize: boolean): ScadaNode {
+function previewNode(
+  definition: SymbolDefinition,
+  useMinimumSize: boolean,
+  variant = definition.variants?.[0]?.id,
+  rotation = 0
+): ScadaNode {
   const width = useMinimumSize ? definition.minimumWidth : definition.defaultWidth;
   const height = useMinimumSize ? definition.minimumHeight : definition.defaultHeight;
   return {
@@ -34,11 +47,19 @@ function previewNode(definition: SymbolDefinition, useMinimumSize: boolean): Sca
       y: Math.max(8, (PREVIEW_HEIGHT - height) / 2 - 6),
       width,
       height,
-      rotation: 0,
+      rotation,
       scaleX: 1,
       scaleY: 1
     },
-    properties: { labelVisible: false },
+    properties: {
+      labelVisible: false,
+      ...Object.fromEntries(
+        definition.editableProperties
+          .filter(({ defaultValue }) => defaultValue !== undefined)
+          .map(({ key, defaultValue }) => [key, defaultValue])
+      ),
+      ...(variant === undefined ? {} : { variant })
+    },
     bindings: [],
     layerId: "preview",
     visible: true,
@@ -48,7 +69,9 @@ function previewNode(definition: SymbolDefinition, useMinimumSize: boolean): Sca
 
 export function createSymbolPreviewDocument(
   definition: SymbolDefinition,
-  useMinimumSize = false
+  useMinimumSize = false,
+  variant?: string,
+  rotation = 0
 ): ScadaDocument {
   return {
     schemaVersion: "1.0.0",
@@ -70,7 +93,7 @@ export function createSymbolPreviewDocument(
       defaultViewport: { x: 0, y: 0, zoom: 1 }
     },
     layers: [{ id: "preview", name: "Preview", order: 0, visible: true, locked: false }],
-    nodes: [previewNode(definition, useMinimumSize)],
+    nodes: [previewNode(definition, useMinimumSize, variant, rotation)],
     connections: [],
     variables: [],
     bindings: [],
@@ -111,6 +134,7 @@ function createPropertyList(definition: SymbolDefinition): HTMLDetailsElement {
 
 export function mountSymbolGallery(container: HTMLElement): SymbolGalleryController {
   const registry = createIndustrialSymbolRegistry();
+  const categoryRegistry = createStandardSymbolCategoryRegistry();
   const previews: Preview[] = [];
   const categories = new Map<string, SymbolDefinition[]>();
   for (const definition of registry.getAll()) {
@@ -119,19 +143,33 @@ export function mountSymbolGallery(container: HTMLElement): SymbolGalleryControl
     categories.set(definition.category, definitions);
   }
 
-  for (const [category, definitions] of [...categories].sort(([left], [right]) =>
-    left.localeCompare(right)
+  const categoryOrder = new Map(
+    categoryRegistry.list().map(({ id }, index) => [id, index] as const)
+  );
+  for (const [category, definitions] of [...categories].sort(
+    ([left], [right]) =>
+      (categoryOrder.get(left) ?? Number.MAX_SAFE_INTEGER) -
+        (categoryOrder.get(right) ?? Number.MAX_SAFE_INTEGER) || left.localeCompare(right)
   )) {
     const section = element("section", "category-section");
     section.dataset.category = category;
     const heading = element("h2");
-    heading.textContent = category.replaceAll("-", " ");
+    heading.textContent =
+      categoryRegistry.get(category)?.displayName ?? category.replaceAll("-", " ");
     const grid = element("div", "symbol-grid");
     for (const definition of definitions.sort((left, right) =>
       left.type.localeCompare(right.type)
     )) {
       const card = element("article", "symbol-card");
       card.dataset.symbolType = definition.type;
+      card.dataset.search = [
+        definition.type,
+        displayName(definition),
+        definition.descriptionKey ?? "",
+        ...(definition.tags ?? [])
+      ]
+        .join(" ")
+        .toLocaleLowerCase();
       const cardHeading = element("h3");
       cardHeading.textContent = displayName(definition);
       const canonical = element("code");
@@ -150,29 +188,88 @@ export function mountSymbolGallery(container: HTMLElement): SymbolGalleryControl
 
       const preview: Preview = {
         definition,
+        card,
+        viewer,
         defaultDocument: createSymbolPreviewDocument(definition),
-        state: "normal",
-        renderer: createSvgRenderer({
-          symbols: registry,
-          options: {
-            showGrid: false,
-            showPorts: true,
-            portVisibility: "always",
-            ariaLabel: `${displayName(definition)} symbol`
-          },
-          runtimeState: {
-            getNodeState: () => preview.state
-          }
-        })
+        state: "normal"
       };
-      preview.renderer.mount(viewer);
-      preview.renderer.resize({ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT });
-      preview.renderer.renderDocument(preview.defaultDocument);
       previews.push(preview);
     }
     section.append(heading, grid);
     container.append(section);
   }
+
+  const activate = (preview: Preview): void => {
+    if (preview.renderer !== undefined) return;
+    preview.renderer = createSvgRenderer({
+      symbols: registry,
+      options: {
+        showGrid: false,
+        showPorts: true,
+        portVisibility: "always",
+        ariaLabel: `${displayName(preview.definition)} symbol`
+      },
+      runtimeState: {
+        getNodeState: () => preview.state
+      }
+    });
+    preview.renderer.mount(preview.viewer);
+    preview.renderer.resize({ width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT });
+    preview.renderer.renderDocument(preview.defaultDocument);
+  };
+  const observer =
+    typeof IntersectionObserver === "undefined" ||
+    !IntersectionObserver.toString().includes("[native code]")
+      ? undefined
+      : new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries)
+              if (entry.isIntersecting) {
+                const preview = previews.find(({ viewer }) => viewer === entry.target);
+                if (preview !== undefined) activate(preview);
+                observer?.unobserve(entry.target);
+              }
+          },
+          { rootMargin: "300px" }
+        );
+  for (const preview of previews) {
+    if (observer === undefined) activate(preview);
+    else observer.observe(preview.viewer);
+  }
+
+  let minimumSize = false;
+  let variant = "horizontal";
+  let rotation = 0;
+  let search = "";
+  let category = "";
+  const updateFilter = (): void => {
+    for (const preview of previews)
+      preview.card.hidden =
+        (category !== "" && preview.definition.category !== category) ||
+        (search !== "" && !preview.card.dataset.search?.includes(search));
+    for (const section of container.querySelectorAll<HTMLElement>(".category-section"))
+      section.hidden = [...section.querySelectorAll<HTMLElement>(".symbol-card")].every(
+        (card) => card.hidden
+      );
+  };
+  const rerender = (): void => {
+    for (const preview of previews) {
+      if (preview.renderer === undefined) continue;
+      const supportedVariant = preview.definition.variants?.some(({ id }) => id === variant)
+        ? variant
+        : preview.definition.variants?.[0]?.id;
+      const document = createSymbolPreviewDocument(
+        preview.definition,
+        minimumSize,
+        supportedVariant,
+        rotation
+      );
+      preview.renderer.renderChanges(document, {
+        ...createEmptyChangeSet(),
+        updatedNodeIds: [document.nodes[0]?.id ?? ""]
+      });
+    }
+  };
 
   return {
     setState(state): void {
@@ -180,20 +277,35 @@ export function mountSymbolGallery(container: HTMLElement): SymbolGalleryControl
         preview.state = preview.definition.supportedStates.includes(state as SymbolState)
           ? (state as SymbolState)
           : "normal";
-        preview.renderer.refreshRuntimeStates();
+        preview.renderer?.refreshRuntimeStates();
       }
     },
     setMinimumSize(enabled): void {
-      for (const preview of previews) {
-        const document = createSymbolPreviewDocument(preview.definition, enabled);
-        preview.renderer.renderChanges(document, {
-          ...createEmptyChangeSet(),
-          updatedNodeIds: [document.nodes[0]?.id ?? ""]
-        });
-      }
+      minimumSize = enabled;
+      rerender();
+    },
+    setSearch(query): void {
+      search = query.trim().toLocaleLowerCase();
+      updateFilter();
+    },
+    setCategory(value): void {
+      category = value;
+      updateFilter();
+    },
+    setVariant(value): void {
+      variant = value;
+      rerender();
+    },
+    setRotation(value): void {
+      rotation = Number.isFinite(value) ? value : 0;
+      rerender();
+    },
+    setTheme(theme): void {
+      document.documentElement.dataset.theme = theme;
     },
     dispose(): void {
-      for (const preview of previews) preview.renderer.dispose();
+      observer?.disconnect();
+      for (const preview of previews) preview.renderer?.dispose();
       previews.length = 0;
       container.replaceChildren();
     }

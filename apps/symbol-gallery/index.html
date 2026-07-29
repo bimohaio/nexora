@@ -8,11 +8,21 @@
   <body>
     <header class="gallery-header">
       <div>
-        <p class="eyebrow">Web SCADA Engine · Phase 3</p>
+        <p class="eyebrow">Web SCADA Engine · Composite Library</p>
         <h1>Industrial Symbol Library</h1>
         <p>Metadata-driven symbols with SVG-local visuals and normalized ports.</p>
       </div>
       <div class="gallery-controls" aria-label="Gallery preview controls">
+        <label>
+          Search
+          <input id="gallery-search" type="search" placeholder="Pump, valve, sensor…" />
+        </label>
+        <label>
+          Category
+          <select id="category-select">
+            <option value="">All categories</option>
+          </select>
+        </label>
         <label>
           Runtime state
           <select id="state-select">
@@ -25,6 +35,23 @@
             <option value="disabled">Disabled</option>
           </select>
         </label>
+        <label>
+          Variant
+          <select id="variant-select">
+            <option value="horizontal">Horizontal</option>
+            <option value="vertical">Vertical</option>
+          </select>
+        </label>
+        <label>
+          Rotation
+          <select id="rotation-select">
+            <option value="0">0°</option>
+            <option value="90">90°</option>
+            <option value="180">180°</option>
+            <option value="270">270°</option>
+          </select>
+        </label>
+        <button id="theme-toggle" type="button">Use light theme</button>
         <button id="size-toggle" type="button">Show minimum sizes</button>
       </div>
     </header>

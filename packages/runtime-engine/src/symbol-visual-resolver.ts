@@ -1,5 +1,10 @@
 import type { JsonValue } from "@web-scada/core";
-import type { SymbolDefinition, SymbolRegistry, SymbolState } from "@web-scada/symbols";
+import {
+  SYMBOL_STATES,
+  type SymbolDefinition,
+  type SymbolRegistry,
+  type SymbolState
+} from "@web-scada/symbols";
 import type {
   DataQuality,
   ResolvedSymbolVisualState,
@@ -10,17 +15,7 @@ import type {
   SymbolVisualCapabilities
 } from "./contracts.js";
 
-const STATES: readonly SymbolState[] = [
-  "normal",
-  "active",
-  "inactive",
-  "running",
-  "stopped",
-  "warning",
-  "alarm",
-  "offline",
-  "disabled"
-];
+const STATES: readonly SymbolState[] = SYMBOL_STATES;
 const QUALITIES: readonly DataQuality[] = ["good", "uncertain", "bad", "offline", "unknown"];
 const DIRECTIONS: readonly RuntimeVisualDirection[] = [
   "none",

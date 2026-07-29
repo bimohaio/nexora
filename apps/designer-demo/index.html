@@ -31,11 +31,50 @@
       </header>
 
       <aside class="palette-panel">
-        <h2>Symbols</h2>
-        <label class="search-label"
-          >Search
-          <input id="symbol-search" type="search" placeholder="Pump, valve, sensor…" />
-        </label>
+        <div class="symbol-library-sticky">
+          <header class="symbol-library-header">
+            <div>
+              <h2>Symbols</h2>
+              <p>Industrial library</p>
+            </div>
+            <output id="symbol-total" aria-label="Registered symbol count"></output>
+          </header>
+          <label class="symbol-search">
+            <span class="visually-hidden">Search symbols</span>
+            <span aria-hidden="true">⌕</span>
+            <input id="symbol-search" type="search" placeholder="Search symbols..." />
+            <button id="symbol-search-clear" type="button" aria-label="Clear symbol search" hidden>
+              ×
+            </button>
+          </label>
+          <details id="symbol-category-menu" class="symbol-category-menu">
+            <summary>
+              <span id="symbol-category-label">All categories</span>
+              <span aria-hidden="true">⌄</span>
+            </summary>
+            <div
+              id="symbol-category-options"
+              class="symbol-category-options"
+              role="listbox"
+              aria-label="Symbol category"
+            ></div>
+          </details>
+          <div class="symbol-library-toolbar">
+            <output id="symbol-results" aria-live="polite"></output>
+            <div class="symbol-view-toggle" aria-label="Symbol view">
+              <button type="button" data-symbol-view="grid" aria-label="Grid view">▦</button>
+              <button type="button" data-symbol-view="list" aria-label="List view">☷</button>
+            </div>
+            <label>
+              <span class="visually-hidden">Sort symbols</span>
+              <select id="symbol-sort" aria-label="Sort symbols">
+                <option value="default">Default</option>
+                <option value="name-asc">Name A–Z</option>
+                <option value="name-desc">Name Z–A</option>
+              </select>
+            </label>
+          </div>
+        </div>
         <div id="symbol-palette" class="symbol-palette"></div>
       </aside>
 
@@ -67,6 +106,10 @@
             <label>Height <input name="height" type="number" min="1" step="1" /></label>
             <label>Rotation <input name="rotation" type="number" step="1" /></label>
             <label>Fill <input name="fill" type="color" /></label>
+            <label id="variant-field" hidden
+              >Variant
+              <select name="variant"></select
+            ></label>
           </div>
           <div class="order-controls" aria-label="Node ordering">
             <button type="button" data-order="front">Front</button>

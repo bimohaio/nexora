@@ -93,14 +93,31 @@ class ImmutableMapView<K, V> implements ReadonlyMap<K, V> {
 
 const STATE_VALUES = new Set<SymbolState>([
   "normal",
-  "active",
   "inactive",
-  "running",
+  "active",
   "stopped",
+  "starting",
+  "running",
+  "stopping",
+  "open",
+  "opening",
+  "closed",
+  "closing",
+  "on",
+  "off",
+  "manual",
+  "automatic",
+  "local",
+  "remote",
   "warning",
   "alarm",
+  "fault",
+  "maintenance",
   "offline",
-  "disabled"
+  "disabled",
+  "unavailable",
+  "unknown",
+  "communication-lost"
 ]);
 const QUALITY_ORDER: readonly DataQuality[] = ["good", "unknown", "uncertain", "bad", "offline"];
 

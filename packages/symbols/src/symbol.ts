@@ -1,17 +1,64 @@
-import type { ExtensionData, JsonValue, PortDefinition } from "@web-scada/core";
+import type { ExtensionData, JsonValue, PortDefinition, ScadaDocument } from "@web-scada/core";
 import { isNormalizedPoint } from "@web-scada/geometry";
+import { COMPOSITE_SYMBOLS } from "./composite-catalog.js";
 import { INDUSTRIAL_SYMBOLS } from "./industrial-symbols.js";
 
 export type SymbolState =
   | "normal"
-  | "active"
   | "inactive"
-  | "running"
+  | "active"
   | "stopped"
+  | "starting"
+  | "running"
+  | "stopping"
+  | "open"
+  | "opening"
+  | "closed"
+  | "closing"
+  | "on"
+  | "off"
+  | "manual"
+  | "automatic"
+  | "local"
+  | "remote"
   | "warning"
   | "alarm"
+  | "fault"
+  | "maintenance"
   | "offline"
-  | "disabled";
+  | "disabled"
+  | "unavailable"
+  | "unknown"
+  | "communication-lost";
+
+export const SYMBOL_STATES: readonly SymbolState[] = Object.freeze([
+  "normal",
+  "inactive",
+  "active",
+  "stopped",
+  "starting",
+  "running",
+  "stopping",
+  "open",
+  "opening",
+  "closed",
+  "closing",
+  "on",
+  "off",
+  "manual",
+  "automatic",
+  "local",
+  "remote",
+  "warning",
+  "alarm",
+  "fault",
+  "maintenance",
+  "offline",
+  "disabled",
+  "unavailable",
+  "unknown",
+  "communication-lost"
+]);
 
 export type SymbolRuntimeCapability =
   | Exclude<SymbolState, "normal">
@@ -38,7 +85,15 @@ export type SymbolCapability =
   | "supports-level"
   | "supports-open-percentage"
   | "animation-compatible"
-  | "alarm-visual-compatible";
+  | "alarm-visual-compatible"
+  | "flippable-horizontal"
+  | "flippable-vertical"
+  | "theme-aware"
+  | "interactive"
+  | "supports-children"
+  | "supports-clipping"
+  | "preserves-aspect-ratio"
+  | "palette-item";
 
 export type BuiltInSymbolCategory =
   | "basic"
@@ -84,6 +139,9 @@ export interface PropertyMetadata {
   readonly options?: readonly PropertyOption[];
   readonly unit?: string;
   readonly validation?: Readonly<Record<string, JsonValue>>;
+  readonly animatable?: boolean;
+  readonly serialization?: "always" | "omit-default";
+  readonly migrationKey?: string;
 }
 
 export interface BindablePropertyMetadata {
@@ -101,7 +159,10 @@ export interface SymbolDefinition {
   readonly defaultHeight: number;
   readonly minimumWidth: number;
   readonly minimumHeight: number;
+  readonly aspectRatio?: "free" | "locked" | number;
+  readonly variants?: readonly SymbolVariantDefinition[];
   readonly ports: readonly PortDefinition[];
+  readonly anchors?: readonly SymbolAnchorDefinition[];
   readonly editableProperties: readonly PropertyMetadata[];
   readonly bindableProperties: readonly BindablePropertyMetadata[];
   readonly supportedStates: readonly SymbolState[];
@@ -121,6 +182,23 @@ export interface SymbolDefinition {
   readonly aliases?: readonly string[];
   readonly deprecation?: SymbolDeprecation;
   readonly metadata?: ExtensionData;
+}
+
+export interface SymbolVariantDefinition {
+  readonly id: string;
+  readonly displayNameKey: string;
+  readonly descriptionKey?: string;
+  readonly properties?: Readonly<Record<string, JsonValue>>;
+  readonly portMap?: Readonly<Record<string, string>>;
+  readonly tags?: readonly string[];
+}
+
+export interface SymbolAnchorDefinition {
+  readonly id: string;
+  readonly position: Readonly<{ readonly x: number; readonly y: number }>;
+  readonly direction?: Readonly<{ readonly x: number; readonly y: number }>;
+  readonly visible?: "always" | "designer" | "connected";
+  readonly variantIds?: readonly string[];
 }
 
 export interface SymbolPreset {
@@ -152,6 +230,7 @@ export interface SymbolRegistry {
   listByCategory(category: string): readonly SymbolDefinition[];
   resolveType(typeOrAlias: string): string | undefined;
   search(query: SymbolSearchQuery): readonly SymbolDefinition[];
+  validateDefinition(definition: SymbolDefinition): SymbolRegistryValidationResult;
   validate(): SymbolRegistryValidationResult;
   clear(): void;
 }
@@ -183,7 +262,10 @@ export interface AliasAwareSymbolRegistry extends SymbolRegistry {
 }
 
 function validateDefinition(definition: SymbolDefinition): void {
-  if (definition.type.trim() === "") throw new Error("Symbol type is required.");
+  if (!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/.test(definition.type))
+    throw new Error(`Invalid symbol type ID: ${definition.type}`);
+  if (definition.category.trim() === "")
+    throw new Error(`Symbol category is required: ${definition.type}`);
   const aliases = definition.aliases ?? [];
   const uniqueAliases = new Set(aliases);
   if (uniqueAliases.size !== aliases.length)
@@ -224,23 +306,36 @@ function validateDefinition(definition: SymbolDefinition): void {
   const supportedStates = new Set(definition.supportedStates);
   if (supportedStates.size !== definition.supportedStates.length)
     throw new Error(`Duplicate supported state: ${definition.type}`);
+  const knownStates = new Set<string>(SYMBOL_STATES);
+  for (const state of supportedStates)
+    if (!knownStates.has(state))
+      throw new Error(`Invalid supported state: ${definition.type}:${state}`);
   for (const capability of definition.runtimeCapabilities ?? [])
     if (
-      [
-        "active",
-        "inactive",
-        "running",
-        "stopped",
-        "warning",
-        "alarm",
-        "offline",
-        "disabled"
-      ].includes(capability) &&
+      knownStates.has(capability) &&
+      capability !== "open" &&
       !supportedStates.has(capability as SymbolState)
     )
       throw new Error(
         `Runtime capability must be included in supported states: ${definition.type}:${capability}`
       );
+  const variantIds = new Set<string>();
+  for (const variant of definition.variants ?? []) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(variant.id) || variantIds.has(variant.id))
+      throw new Error(`Invalid or duplicate symbol variant: ${definition.type}:${variant.id}`);
+    variantIds.add(variant.id);
+    for (const portId of Object.keys(variant.portMap ?? {}))
+      if (!portIds.has(portId))
+        throw new Error(`Variant maps unknown port: ${definition.type}:${variant.id}:${portId}`);
+  }
+  const anchorIds = new Set<string>();
+  for (const anchor of definition.anchors ?? []) {
+    if (anchorIds.has(anchor.id) || !isNormalizedPoint(anchor.position))
+      throw new Error(`Invalid or duplicate symbol anchor: ${definition.type}:${anchor.id}`);
+    anchorIds.add(anchor.id);
+    if (anchor.variantIds?.some((variantId) => !variantIds.has(variantId)) === true)
+      throw new Error(`Anchor references unknown variant: ${definition.type}:${anchor.id}`);
+  }
   for (const target of [
     ...(definition.phase10Capabilities?.animationTargets ?? []),
     ...(definition.phase10Capabilities?.alarmVisualTargets ?? []),
@@ -273,7 +368,8 @@ export class InMemorySymbolRegistry implements AliasAwareSymbolRegistry {
     if (canonicalAliasOwner !== undefined && canonicalAliasOwner !== definition.type)
       throw new Error(`Symbol type conflicts with registered alias: ${definition.type}`);
     if (options.replace === true) this.#removeAliases(definition.type);
-    this.#definitions.set(definition.type, definition);
+    const immutable = freezeDefinition(definition);
+    this.#definitions.set(definition.type, immutable);
     for (const alias of aliases) this.#aliases.set(alias, definition.type);
   }
 
@@ -354,6 +450,25 @@ export class InMemorySymbolRegistry implements AliasAwareSymbolRegistry {
     );
   }
 
+  public validateDefinition(definition: SymbolDefinition): SymbolRegistryValidationResult {
+    try {
+      validateDefinition(definition);
+      return Object.freeze({ valid: true, diagnostics: Object.freeze([]) });
+    } catch (error) {
+      return Object.freeze({
+        valid: false,
+        diagnostics: Object.freeze([
+          {
+            severity: "error" as const,
+            code: "invalid-definition",
+            symbolType: definition.type,
+            message: error instanceof Error ? error.message : String(error)
+          }
+        ])
+      });
+    }
+  }
+
   public validate(): SymbolRegistryValidationResult {
     const diagnostics: SymbolRegistryDiagnostic[] = [];
     for (const definition of this.#definitions.values()) {
@@ -408,6 +523,25 @@ export class InMemorySymbolRegistry implements AliasAwareSymbolRegistry {
     for (const [alias, owner] of this.#aliases)
       if (owner === canonicalType) this.#aliases.delete(alias);
   }
+}
+
+function freezeDefinition(definition: SymbolDefinition): SymbolDefinition {
+  for (const port of definition.ports) Object.freeze(port);
+  for (const property of definition.editableProperties) Object.freeze(property);
+  for (const property of definition.bindableProperties) Object.freeze(property);
+  for (const variant of definition.variants ?? []) Object.freeze(variant);
+  for (const anchor of definition.anchors ?? []) Object.freeze(anchor);
+  Object.freeze(definition.ports);
+  Object.freeze(definition.editableProperties);
+  Object.freeze(definition.bindableProperties);
+  Object.freeze(definition.supportedStates);
+  if (definition.runtimeCapabilities !== undefined) Object.freeze(definition.runtimeCapabilities);
+  if (definition.capabilities !== undefined) Object.freeze(definition.capabilities);
+  if (definition.variants !== undefined) Object.freeze(definition.variants);
+  if (definition.anchors !== undefined) Object.freeze(definition.anchors);
+  if (definition.tags !== undefined) Object.freeze(definition.tags);
+  if (definition.aliases !== undefined) Object.freeze(definition.aliases);
+  return Object.freeze(definition);
 }
 
 const rectanglePorts: readonly PortDefinition[] = [
@@ -627,7 +761,11 @@ export const INITIAL_SYMBOLS: readonly SymbolDefinition[] = [
   INDICATOR_SYMBOL
 ];
 
-export const ALL_SYMBOLS: readonly SymbolDefinition[] = [...INITIAL_SYMBOLS, ...INDUSTRIAL_SYMBOLS];
+export const ALL_SYMBOLS: readonly SymbolDefinition[] = [
+  ...INITIAL_SYMBOLS,
+  ...INDUSTRIAL_SYMBOLS,
+  ...COMPOSITE_SYMBOLS
+];
 
 export function createIndustrialSymbolRegistry(): InMemorySymbolRegistry {
   const registry = new InMemorySymbolRegistry();
@@ -637,4 +775,22 @@ export function createIndustrialSymbolRegistry(): InMemorySymbolRegistry {
 
 export function createExampleSymbolRegistry(): InMemorySymbolRegistry {
   return createIndustrialSymbolRegistry();
+}
+
+/**
+ * Rewrites resolvable aliases to canonical symbol IDs without changing any
+ * other document, node, binding, connection, interaction, or extension data.
+ */
+export function canonicalizeDocumentSymbolTypes(
+  document: ScadaDocument,
+  registry: SymbolRegistry
+): ScadaDocument {
+  const nodes = document.nodes.map((node) => {
+    const canonicalType = registry.resolveType(node.symbolType);
+    if (canonicalType === undefined || canonicalType === node.symbolType) return node;
+    return { ...node, symbolType: canonicalType };
+  });
+  return nodes.some((node, index) => node !== document.nodes[index])
+    ? { ...document, nodes }
+    : document;
 }

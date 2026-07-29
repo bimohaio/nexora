@@ -26,14 +26,35 @@ import {
 import {
   SvgAccessibilityAdapter,
   SvgLiveRegionAdapter,
+  createInitialSvgSymbolRendererRegistry,
   createSvgRenderer,
   resolveEntityMetadata,
   zoomViewportAtPoint
 } from "@web-scada/renderer-svg";
-import { createIndustrialSymbolRegistry, type SymbolDefinition } from "@web-scada/symbols";
+import {
+  createIndustrialSymbolRegistry,
+  createStandardSymbolCategoryRegistry,
+  type SymbolDefinition
+} from "@web-scada/symbols";
 
 import { DESIGNER_SAMPLE_DOCUMENT } from "./sample-document.js";
 import { DesignerOverlay } from "./overlay.js";
+import {
+  loadSymbolLibraryPreferences,
+  normalizeSymbolLibrary,
+  querySymbolLibrary,
+  recordRecent,
+  saveSymbolLibraryPreferences,
+  readSymbolDragData,
+  symbolDisplayName,
+  toggleFavorite,
+  writeSymbolDragData,
+  SYMBOL_LIBRARY_DRAG_TYPE,
+  type SymbolLibraryItem,
+  type SymbolLibraryPreferences,
+  type SymbolLibrarySort,
+  type SymbolLibraryView
+} from "./symbol-library.js";
 import "./style.css";
 
 // The generic maps a known selector to its expected DOM subtype.
@@ -49,10 +70,18 @@ const rendererHost = required<HTMLElement>("#renderer-host");
 const overlayElement = required<SVGSVGElement>("#designer-overlay");
 const palette = required<HTMLElement>("#symbol-palette");
 const search = required<HTMLInputElement>("#symbol-search");
+const symbolResults = required<HTMLOutputElement>("#symbol-results");
+const symbolTotal = required<HTMLOutputElement>("#symbol-total");
+const symbolSearchClear = required<HTMLButtonElement>("#symbol-search-clear");
+const symbolCategoryMenu = required<HTMLDetailsElement>("#symbol-category-menu");
+const symbolCategoryLabel = required<HTMLElement>("#symbol-category-label");
+const symbolCategoryOptions = required<HTMLElement>("#symbol-category-options");
+const symbolSort = required<HTMLSelectElement>("#symbol-sort");
 const status = required<HTMLOutputElement>("#status");
 const viewportStatus = required<HTMLOutputElement>("#viewport-status");
 const inspector = required<HTMLFormElement>("#node-inspector");
 const emptyInspector = required<HTMLElement>("#empty-inspector");
+const variantField = required<HTMLElement>("#variant-field");
 const undoButton = required<HTMLButtonElement>("#undo");
 const redoButton = required<HTMLButtonElement>("#redo");
 const bindingPanel = required<HTMLElement>("#binding-panel");
@@ -62,6 +91,8 @@ const bindingForm = required<HTMLFormElement>("#binding-form");
 const bindingFormStatus = required<HTMLOutputElement>("#binding-form-status");
 const bindingSourceLabel = required<HTMLElement>("#binding-source-label");
 const symbols = createIndustrialSymbolRegistry();
+const symbolCategories = createStandardSymbolCategoryRegistry();
+const symbolVisuals = createInitialSvgSymbolRendererRegistry();
 const ids = new UlidEntityIdGenerator();
 const overlay = new DesignerOverlay(overlayElement);
 
@@ -130,7 +161,10 @@ tools.register(new ConnectionTool(designer, { ids }));
 const toolController = new DesignerToolController(designer, tools);
 toolController.activate("select");
 
-function localScreenPoint(event: PointerEvent | WheelEvent): { x: number; y: number } {
+function localScreenPoint(event: { readonly clientX: number; readonly clientY: number }): {
+  x: number;
+  y: number;
+} {
   const bounds = canvas.getBoundingClientRect();
   return { x: event.clientX - bounds.left, y: event.clientY - bounds.top };
 }
@@ -330,6 +364,25 @@ canvas.addEventListener(
   },
   { passive: false }
 );
+canvas.addEventListener("dragover", (event) => {
+  if (!event.dataTransfer?.types.includes(SYMBOL_LIBRARY_DRAG_TYPE)) return;
+  event.dataTransfer.dropEffect = "copy";
+  canvas.dataset.symbolDropTarget = "true";
+  event.preventDefault();
+});
+canvas.addEventListener("dragleave", (event) => {
+  if (!canvas.contains(event.relatedTarget as Node | null)) delete canvas.dataset.symbolDropTarget;
+});
+canvas.addEventListener("drop", (event) => {
+  delete canvas.dataset.symbolDropTarget;
+  if (event.dataTransfer === null) return;
+  const type = readSymbolDragData(event.dataTransfer, knownSymbolTypes);
+  if (type === undefined) return;
+  const definition = symbols.get(type);
+  if (definition === undefined) return;
+  insertLibrarySymbol(definition, designer.toCanvasPoint(localScreenPoint(event)));
+  event.preventDefault();
+});
 
 function activateTool(id: DesignerToolId): void {
   toolController.activate(id);
@@ -369,53 +422,426 @@ document.addEventListener("keydown", (event) => {
 });
 
 function displayName(definition: SymbolDefinition): string {
-  return definition.type.slice(definition.type.indexOf(".") + 1).replaceAll("-", " ");
+  return symbolDisplayName(definition);
 }
 
-function renderPalette(query = ""): void {
-  palette.replaceChildren();
-  const normalized = query.trim().toLowerCase();
-  for (const definition of symbols
-    .getAll()
-    .filter(({ type }) => normalized === "" || type.includes(normalized))
-    .slice(0, 30)) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.paletteSymbol = definition.type;
-    button.textContent = displayName(definition);
-    button.title = definition.type;
-    button.addEventListener("click", () => {
-      const layerId = designer.getState().document.layers[0]?.id;
-      if (layerId === undefined) return;
-      const index = designer.getState().document.nodes.length;
-      designer.insertNode({
-        id: ids.createNodeId(),
-        name: displayName(definition),
-        symbolType: definition.type,
-        transform: {
-          x: 180 + (index % 5) * 40,
-          y: 140 + (index % 4) * 40,
-          width: definition.defaultWidth,
-          height: definition.defaultHeight,
-          rotation: 0,
-          scaleX: 1,
-          scaleY: 1
-        },
-        properties: {},
-        bindings: [],
-        layerId,
-        visible: true,
-        locked: false
-      });
-    });
-    palette.append(button);
+function defaultProperties(definition: SymbolDefinition): Readonly<Record<string, JsonValue>> {
+  return Object.fromEntries(
+    definition.editableProperties.flatMap(({ key, defaultValue }) =>
+      defaultValue === undefined ? [] : ([[key, defaultValue]] as const)
+    )
+  );
+}
+
+interface PaletteVisual {
+  readonly renderer: NonNullable<ReturnType<typeof symbolVisuals.get>>;
+  readonly element: SVGGElement;
+}
+
+let paletteObserver: IntersectionObserver | undefined;
+let paletteVisuals: PaletteVisual[] = [];
+const libraryItems = normalizeSymbolLibrary(symbols.getAll(), symbolCategories.list());
+const knownSymbolTypes = new Set(libraryItems.map(({ definition }) => definition.type));
+const preferenceStorage = (() => {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
   }
+})();
+let libraryPreferences = loadSymbolLibraryPreferences(preferenceStorage, knownSymbolTypes);
+let activeCategory = "";
+const expandedCategories = new Set<string>();
+const expandedCategoryItems = new Set<string>();
+const firstCategory = symbolCategories
+  .list()
+  .find(({ id }) => libraryItems.some(({ definition }) => definition.category === id));
+if (firstCategory !== undefined) expandedCategories.add(firstCategory.id);
+symbolTotal.value = String(libraryItems.length);
+
+function persistLibraryPreferences(
+  changes: Partial<Pick<SymbolLibraryPreferences, "view" | "sort" | "favorites" | "recent">>
+): void {
+  libraryPreferences = Object.freeze({ ...libraryPreferences, ...changes, version: 1 });
+  saveSymbolLibraryPreferences(preferenceStorage, libraryPreferences);
+}
+
+function disposePaletteVisuals(): void {
+  paletteObserver?.disconnect();
+  paletteObserver = undefined;
+  for (const visual of paletteVisuals) visual.renderer.dispose?.(visual.element);
+  paletteVisuals = [];
+}
+
+function mountPalettePreview(host: SVGSVGElement, definition: SymbolDefinition): void {
+  if (host.childElementCount > 0) return;
+  const visual = symbolVisuals.get(definition.type);
+  if (visual === undefined) {
+    host.dataset.previewError = "missing-renderer";
+    const fallback = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    fallback.textContent = "?";
+    fallback.setAttribute("x", "50%");
+    fallback.setAttribute("y", "55%");
+    fallback.setAttribute("text-anchor", "middle");
+    fallback.setAttribute("fill", "#94a3b8");
+    fallback.setAttribute("font-size", "24");
+    host.setAttribute("viewBox", "0 0 64 48");
+    host.append(fallback);
+    return;
+  }
+  const properties = { ...defaultProperties(definition), labelVisible: false };
+  const previewNode: ScadaNode = {
+    id: `palette_${definition.type.replaceAll(/[^a-zA-Z0-9]/g, "_")}`,
+    name: displayName(definition),
+    symbolType: definition.type,
+    transform: {
+      x: 0,
+      y: 0,
+      width: definition.defaultWidth,
+      height: definition.defaultHeight,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1
+    },
+    properties,
+    bindings: [],
+    layerId: designer.getState().document.layers[0]?.id ?? "main",
+    visible: true,
+    locked: false
+  };
+  host.setAttribute(
+    "viewBox",
+    `0 0 ${String(definition.defaultWidth)} ${String(definition.defaultHeight)}`
+  );
+  const element = visual.create({
+    document: designer.getState().document,
+    node: previewNode,
+    state: "normal"
+  });
+  element.setAttribute("aria-hidden", "true");
+  host.append(element);
+  paletteVisuals.push({ renderer: visual, element });
+}
+
+function insertLibrarySymbol(
+  definition: SymbolDefinition,
+  position?: Readonly<{ x: number; y: number }>
+): void {
+  const layerId = designer.getState().document.layers[0]?.id;
+  if (layerId === undefined) return;
+  const index = designer.getState().document.nodes.length;
+  const x =
+    position === undefined ? 180 + (index % 5) * 40 : position.x - definition.defaultWidth / 2;
+  const y =
+    position === undefined ? 140 + (index % 4) * 40 : position.y - definition.defaultHeight / 2;
+  designer.insertNode({
+    id: ids.createNodeId(),
+    name: displayName(definition),
+    symbolType: definition.type,
+    transform: {
+      x,
+      y,
+      width: definition.defaultWidth,
+      height: definition.defaultHeight,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1
+    },
+    properties: defaultProperties(definition),
+    bindings: [],
+    layerId,
+    visible: true,
+    locked: false
+  });
+  persistLibraryPreferences({
+    recent: recordRecent(libraryPreferences.recent, definition.type)
+  });
+  renderPalette();
+}
+
+interface PreviewHost {
+  readonly host: SVGSVGElement;
+  readonly definition: SymbolDefinition;
+}
+
+function createSymbolCard(item: SymbolLibraryItem, previewHosts: PreviewHost[]): HTMLElement {
+  const { definition } = item;
+  const card = document.createElement("article");
+  card.className = "symbol-palette-item";
+  card.dataset.paletteSymbol = definition.type;
+  card.draggable = true;
+  const insert = document.createElement("button");
+  insert.type = "button";
+  insert.className = "symbol-insert";
+  insert.title = `${item.displayName} · ${definition.type}`;
+  const preview = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  preview.classList.add("symbol-palette-preview");
+  preview.setAttribute("role", "img");
+  preview.setAttribute("aria-label", `${item.displayName} preview`);
+  const details = document.createElement("span");
+  details.className = "symbol-palette-details";
+  const name = document.createElement("strong");
+  name.textContent = item.displayName;
+  const secondary = document.createElement("span");
+  secondary.className = "symbol-secondary";
+  const type = document.createElement("code");
+  type.textContent = definition.type;
+  const category = document.createElement("small");
+  category.textContent = item.categoryName;
+  secondary.append(type, category);
+  details.append(name, secondary);
+  insert.append(preview, details);
+  previewHosts.push({ host: preview, definition });
+  insert.addEventListener("click", () => {
+    insertLibrarySymbol(definition);
+  });
+
+  const favorite = document.createElement("button");
+  favorite.type = "button";
+  favorite.className = "symbol-favorite";
+  favorite.draggable = false;
+  const isFavorite = libraryPreferences.favorites.includes(definition.type);
+  favorite.setAttribute("aria-pressed", String(isFavorite));
+  favorite.setAttribute(
+    "aria-label",
+    `${isFavorite ? "Remove" : "Add"} ${item.displayName} ${isFavorite ? "from" : "to"} favorites`
+  );
+  favorite.textContent = isFavorite ? "★" : "☆";
+  favorite.addEventListener("pointerdown", (event) => {
+    event.stopPropagation();
+  });
+  favorite.addEventListener("click", (event) => {
+    event.stopPropagation();
+    persistLibraryPreferences({
+      favorites: toggleFavorite(libraryPreferences.favorites, definition.type)
+    });
+    renderPalette();
+  });
+  card.addEventListener("dragstart", (event) => {
+    if (event.dataTransfer === null) return;
+    event.dataTransfer.effectAllowed = "copy";
+    writeSymbolDragData(event.dataTransfer, definition.type);
+    card.dataset.dragging = "true";
+  });
+  card.addEventListener("dragend", () => {
+    delete card.dataset.dragging;
+  });
+  card.append(insert, favorite);
+  return card;
+}
+
+function createSection(
+  title: string,
+  items: readonly SymbolLibraryItem[],
+  previewHosts: PreviewHost[],
+  options: { readonly categoryId?: string; readonly alwaysExpanded?: boolean } = {}
+): HTMLElement {
+  const section = document.createElement("section");
+  section.className = "symbol-category-section";
+  const heading = document.createElement("button");
+  heading.type = "button";
+  heading.className = "symbol-category-heading";
+  const categoryId = options.categoryId;
+  const expanded =
+    options.alwaysExpanded === true ||
+    categoryId === undefined ||
+    expandedCategories.has(categoryId);
+  heading.setAttribute("aria-expanded", String(expanded));
+  const titleText = document.createElement("strong");
+  titleText.textContent = title;
+  const count = document.createElement("span");
+  count.textContent = String(items.length);
+  const chevron = document.createElement("span");
+  chevron.className = "symbol-category-chevron";
+  chevron.textContent = expanded ? "⌃" : "⌄";
+  heading.append(titleText, count, chevron);
+  const content = document.createElement("div");
+  content.className = `symbol-items symbol-items-${libraryPreferences.view}`;
+  content.hidden = !expanded;
+  if (categoryId !== undefined)
+    heading.addEventListener("click", () => {
+      if (expandedCategories.has(categoryId)) expandedCategories.delete(categoryId);
+      else expandedCategories.add(categoryId);
+      renderPalette();
+    });
+  const showAll =
+    options.alwaysExpanded === true ||
+    categoryId === undefined ||
+    expandedCategoryItems.has(categoryId);
+  const visibleItems = showAll ? items : items.slice(0, 8);
+  for (const item of visibleItems) content.append(createSymbolCard(item, previewHosts));
+  if (!showAll && items.length > visibleItems.length) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "symbol-view-all";
+    more.textContent = `View all ${String(items.length)}`;
+    more.addEventListener("click", () => {
+      expandedCategoryItems.add(categoryId);
+      renderPalette();
+    });
+    content.append(more);
+  }
+  section.append(heading, content);
+  return section;
+}
+
+function renderPalette(): void {
+  disposePaletteVisuals();
+  palette.replaceChildren();
+  palette.dataset.view = libraryPreferences.view;
+  const query = search.value;
+  const favorites = new Set(libraryPreferences.favorites);
+  const items = querySymbolLibrary(libraryItems, {
+    query,
+    category: activeCategory,
+    sort: libraryPreferences.sort,
+    favorites
+  });
+  symbolResults.value = `${String(items.length)} result${items.length === 1 ? "" : "s"}`;
+  symbolSearchClear.hidden = search.value === "";
+  for (const button of document.querySelectorAll<HTMLButtonElement>("[data-symbol-view]"))
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.symbolView === libraryPreferences.view)
+    );
+  symbolSort.value = libraryPreferences.sort;
+  const previewHosts: PreviewHost[] = [];
+  if (items.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "symbol-library-empty";
+    const title = document.createElement("strong");
+    title.textContent = "No symbols found";
+    const context = document.createElement("p");
+    context.textContent =
+      search.value === "" ? "Try another category." : `No results for “${search.value.trim()}”.`;
+    const clear = document.createElement("button");
+    clear.type = "button";
+    clear.textContent = "Clear filters";
+    clear.addEventListener("click", () => {
+      search.value = "";
+      activeCategory = "";
+      symbolCategoryLabel.textContent = "All categories";
+      renderPalette();
+    });
+    empty.append(title, context, clear);
+    palette.append(empty);
+  } else if (query.trim() !== "" || activeCategory !== "") {
+    const content = document.createElement("div");
+    content.className = `symbol-items symbol-items-${libraryPreferences.view}`;
+    for (const item of items) content.append(createSymbolCard(item, previewHosts));
+    palette.append(content);
+  } else {
+    const favoriteItems = libraryPreferences.favorites
+      .map((type) => items.find(({ definition }) => definition.type === type))
+      .filter((item): item is SymbolLibraryItem => item !== undefined);
+    if (favoriteItems.length > 0)
+      palette.append(
+        createSection("Favorites", favoriteItems, previewHosts, { alwaysExpanded: true })
+      );
+    const recentItems = libraryPreferences.recent
+      .map((type) => items.find(({ definition }) => definition.type === type))
+      .filter((item): item is SymbolLibraryItem => item !== undefined);
+    if (recentItems.length > 0)
+      palette.append(createSection("Recent", recentItems, previewHosts, { alwaysExpanded: true }));
+    const grouped = new Map<string, SymbolLibraryItem[]>();
+    for (const item of items) {
+      const values = grouped.get(item.definition.category) ?? [];
+      values.push(item);
+      grouped.set(item.definition.category, values);
+    }
+    for (const category of symbolCategories.list()) {
+      const categoryItems = grouped.get(category.id);
+      if (categoryItems === undefined || categoryItems.length === 0) continue;
+      palette.append(
+        createSection(category.displayName, categoryItems, previewHosts, {
+          categoryId: category.id
+        })
+      );
+    }
+  }
+  const canObserve =
+    typeof IntersectionObserver !== "undefined" &&
+    IntersectionObserver.toString().includes("[native code]");
+  if (canObserve) {
+    paletteObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries)
+          if (entry.isIntersecting && entry.target instanceof SVGSVGElement) {
+            const target = previewHosts.find(({ host }) => host === entry.target);
+            if (target !== undefined) mountPalettePreview(target.host, target.definition);
+            paletteObserver?.unobserve(entry.target);
+          }
+      },
+      { root: palette, rootMargin: "180px" }
+    );
+    for (const { host } of previewHosts) paletteObserver.observe(host);
+  } else for (const { host, definition } of previewHosts) mountPalettePreview(host, definition);
 }
 
 search.addEventListener("input", () => {
-  renderPalette(search.value);
+  renderPalette();
 });
+search.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && search.value !== "") {
+    search.value = "";
+    renderPalette();
+  }
+});
+symbolSearchClear.addEventListener("click", () => {
+  search.value = "";
+  search.focus();
+  renderPalette();
+});
+symbolSort.addEventListener("change", () => {
+  persistLibraryPreferences({ sort: symbolSort.value as SymbolLibrarySort });
+  renderPalette();
+});
+for (const button of document.querySelectorAll<HTMLButtonElement>("[data-symbol-view]"))
+  button.addEventListener("click", () => {
+    persistLibraryPreferences({ view: button.dataset.symbolView as SymbolLibraryView });
+    renderPalette();
+  });
+const categoriesWithCounts = symbolCategories
+  .list()
+  .map((category) => ({
+    category,
+    count: libraryItems.filter(({ definition }) => definition.category === category.id).length
+  }))
+  .filter(({ count }) => count > 0);
+for (const option of [
+  { id: "", displayName: "All categories", count: libraryItems.length },
+  ...categoriesWithCounts.map(({ category, count }) => ({
+    id: category.id,
+    displayName: category.displayName,
+    count
+  }))
+]) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.role = "option";
+  button.dataset.category = option.id;
+  button.setAttribute("aria-selected", String(option.id === activeCategory));
+  const name = document.createElement("span");
+  name.textContent = option.displayName;
+  const count = document.createElement("span");
+  count.textContent = String(option.count);
+  button.append(name, count);
+  button.addEventListener("click", () => {
+    activeCategory = option.id;
+    symbolCategoryLabel.textContent = option.displayName;
+    symbolCategoryMenu.open = false;
+    for (const categoryButton of symbolCategoryOptions.querySelectorAll("button"))
+      categoryButton.setAttribute(
+        "aria-selected",
+        String(categoryButton.getAttribute("data-category") === activeCategory)
+      );
+    renderPalette();
+  });
+  symbolCategoryOptions.append(button);
+}
 renderPalette();
+
+window.addEventListener("beforeunload", disposePaletteVisuals);
 
 function field(name: string): HTMLInputElement {
   const result = inspector.elements.namedItem(name);
@@ -426,6 +852,12 @@ function field(name: string): HTMLInputElement {
 function bindingSelect(name: string): HTMLSelectElement {
   const result = bindingForm.elements.namedItem(name);
   if (!(result instanceof HTMLSelectElement)) throw new Error(`Binding field missing: ${name}`);
+  return result;
+}
+
+function inspectorSelect(name: string): HTMLSelectElement {
+  const result = inspector.elements.namedItem(name);
+  if (!(result instanceof HTMLSelectElement)) throw new Error(`Inspector field missing: ${name}`);
   return result;
 }
 
@@ -588,6 +1020,19 @@ function renderInspector(): void {
     typeof node.properties.fill === "string" && /^#[0-9a-fA-F]{6}$/.test(node.properties.fill)
       ? node.properties.fill
       : "#475569";
+  const definition = symbols.get(node.symbolType);
+  const variants = definition?.variants ?? [];
+  variantField.hidden = variants.length === 0;
+  const variantSelect = inspectorSelect("variant");
+  variantSelect.replaceChildren();
+  for (const variant of variants) {
+    const option = document.createElement("option");
+    option.value = variant.id;
+    option.textContent = variant.id.replaceAll("-", " ");
+    variantSelect.append(option);
+  }
+  variantSelect.value =
+    typeof node.properties.variant === "string" ? node.properties.variant : (variants[0]?.id ?? "");
 }
 
 inspector.addEventListener("change", () => {
@@ -604,7 +1049,11 @@ inspector.addEventListener("change", () => {
       height: field("height").valueAsNumber,
       rotation: field("rotation").valueAsNumber
     },
-    properties: { ...node.properties, fill: field("fill").value }
+    properties: {
+      ...node.properties,
+      fill: field("fill").value,
+      ...(variantField.hidden ? {} : { variant: inspectorSelect("variant").value })
+    }
   }));
 });
 

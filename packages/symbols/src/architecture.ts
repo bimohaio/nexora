@@ -21,6 +21,7 @@ export interface SymbolCategoryDefinition {
   readonly order?: number;
   readonly iconKey?: string;
   readonly parentId?: SymbolCategory;
+  readonly tags?: readonly string[];
 }
 
 export class SymbolCategoryRegistry {
@@ -62,12 +63,93 @@ export class SymbolCategoryRegistry {
 
 export const STANDARD_SYMBOL_CATEGORIES: readonly SymbolCategoryDefinition[] = Object.freeze([
   { id: "basic", displayName: "Basic", order: 10 },
-  { id: "process", displayName: "Process", order: 20 },
-  { id: "instrumentation", displayName: "Instrumentation", order: 30 },
-  { id: "electrical", displayName: "Electrical", order: 40 },
-  { id: "bms", displayName: "BMS", order: 50 },
-  { id: "safety", displayName: "Safety", order: 60 },
-  { id: "network-control", displayName: "Network & Control", order: 70 },
+  {
+    id: "indicators-alarms",
+    displayName: "Indicators and Alarms",
+    order: 20,
+    tags: ["status", "alarm", "lamp"]
+  },
+  {
+    id: "hmi-controls",
+    displayName: "Buttons and HMI Controls",
+    order: 30,
+    tags: ["button", "switch", "command"]
+  },
+  { id: "valves", displayName: "Valves", order: 40, tags: ["flow", "process"] },
+  { id: "pumps", displayName: "Pumps", order: 50, tags: ["flow", "process"] },
+  {
+    id: "motors-drives",
+    displayName: "Motors and Drives",
+    order: 60,
+    tags: ["motor", "drive"]
+  },
+  {
+    id: "pipes-connectors",
+    displayName: "Pipes and Connectors",
+    order: 70,
+    tags: ["pipe", "connection", "flow"]
+  },
+  {
+    id: "tanks-vessels",
+    displayName: "Tanks and Vessels",
+    order: 80,
+    tags: ["tank", "vessel", "storage"]
+  },
+  {
+    id: "conveyors-material-handling",
+    displayName: "Conveyors and Material Handling",
+    order: 90,
+    tags: ["conveyor", "material"]
+  },
+  {
+    id: "process-equipment",
+    displayName: "Process Equipment",
+    order: 100,
+    tags: ["process", "equipment"]
+  },
+  {
+    id: "instruments-sensors",
+    displayName: "Instruments and Sensors",
+    order: 110,
+    tags: ["instrument", "sensor", "measurement"]
+  },
+  { id: "electrical", displayName: "Electrical", order: 120, tags: ["power", "control"] },
+  { id: "hvac", displayName: "HVAC", order: 130, tags: ["air", "ventilation"] },
+  {
+    id: "displays-visualization",
+    displayName: "Displays and Visualization",
+    order: 140,
+    tags: ["display", "chart", "gauge"]
+  },
+  {
+    id: "navigation-layout",
+    displayName: "Navigation and Layout",
+    order: 150,
+    tags: ["navigation", "layout", "container"]
+  },
+  {
+    id: "utilities-authoring",
+    displayName: "Utilities and Authoring Helpers",
+    order: 160,
+    tags: ["authoring", "helper", "annotation"]
+  },
+  {
+    id: "robotics-automation",
+    displayName: "Robotics and Factory Automation",
+    order: 170,
+    tags: ["robot", "factory", "automation"]
+  },
+  {
+    id: "oil-gas",
+    displayName: "Oil and Gas",
+    order: 180,
+    tags: ["oil", "gas", "pipeline"]
+  },
+  { id: "process", displayName: "Process", order: 900 },
+  { id: "instrumentation", displayName: "Instrumentation", order: 910 },
+  { id: "bms", displayName: "BMS", order: 920 },
+  { id: "safety", displayName: "Safety", order: 930 },
+  { id: "network-control", displayName: "Network & Control", order: 940 },
   { id: "custom", displayName: "Custom", order: 1000 }
 ]);
 

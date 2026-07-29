@@ -92,7 +92,7 @@ test("designer exposes semantic accessibility state and preferences", async ({ p
   await tank.click();
   await expect(tank).toHaveAttribute("aria-selected", "true");
   await expect(tank).toHaveAttribute("data-accessibility-focused", "");
-  await expect(page.locator('[aria-live="polite"]')).toContainText("1 nodes");
+  await expect(page.locator('[data-scada-live-region="polite"]')).toContainText("1 nodes");
 });
 
 test("designer remains responsive under coalescible interaction bursts", async ({ page }) => {
@@ -129,4 +129,49 @@ test("designer remains responsive under coalescible interaction bursts", async (
   });
   expect(elapsed).toBeLessThan(2_000);
   await expect(page.locator("#viewport-status")).toContainText("%");
+});
+
+test("symbol library searches, persists preferences, inserts, drags, and preserves history", async ({
+  page
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#symbol-total")).toHaveText("428");
+
+  const search = page.getByRole("searchbox", { name: "Search symbols" });
+  await search.fill("gear pump");
+  await expect(page.locator("#symbol-results")).toHaveText("1 result");
+  const gearPump = page.locator('[data-palette-symbol="pump.gear-pump"]');
+  await expect(gearPump).toBeVisible();
+
+  await gearPump.getByRole("button", { name: /Add Gear Pump to favorites/ }).click();
+  await expect(
+    gearPump.getByRole("button", { name: /Remove Gear Pump from favorites/ })
+  ).toHaveAttribute("aria-pressed", "true");
+  const renderedNodes = page.locator('[data-entity-type="node"]');
+  await expect(renderedNodes).toHaveCount(5);
+
+  await page.getByRole("button", { name: "List view" }).click();
+  await gearPump
+    .getByRole("button", { name: /Gear Pump/ })
+    .first()
+    .click();
+  await expect(renderedNodes).toHaveCount(6);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(renderedNodes).toHaveCount(5);
+  await page.getByRole("button", { name: "Redo" }).click();
+  await expect(renderedNodes).toHaveCount(6);
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "List view" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await search.fill("gate valve");
+  const gateValve = page.locator('[data-palette-symbol="valve.gate-valve"]');
+  await gateValve.dragTo(page.locator("#designer-canvas"), {
+    targetPosition: { x: 500, y: 400 }
+  });
+  await expect(renderedNodes).toHaveCount(6);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(renderedNodes).toHaveCount(5);
 });
