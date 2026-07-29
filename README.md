@@ -1,5 +1,8 @@
 # Nexora Web SCADA
 
+Phase 9 datasource integration validation and production-readiness evidence is summarized in the
+[Phase 9.08 final audit](docs/datasource/phase-9-08-final-audit.md).
+
 A framework-independent TypeScript toolkit for building long-lived industrial graphics, HMI,
 P&ID, BMS, electrical, water-treatment, manufacturing, dashboard, and digital-twin applications.
 

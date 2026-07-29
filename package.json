@@ -19,7 +19,7 @@
     "test:coverage": "vitest run --coverage --exclude '**/*.benchmark.test.ts'",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "benchmark": "vitest run packages/runtime-engine/src/performance.benchmark.test.ts packages/interaction-engine/src/benchmarks/interaction-performance.benchmark.test.ts packages/binding-engine/src/coordinator.benchmark.test.ts"
+    "benchmark": "vitest run packages/runtime-engine/src/performance.benchmark.test.ts packages/interaction-engine/src/benchmarks/interaction-performance.benchmark.test.ts packages/binding-engine/src/coordinator.benchmark.test.ts tests/performance/phase-9-manager-scaling.benchmark.test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
