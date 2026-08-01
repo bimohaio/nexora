@@ -111,7 +111,8 @@ label {
 }
 
 select,
-button {
+button,
+.button-link {
   min-height: 34px;
   border: 1px solid #334155;
   border-radius: 7px;
@@ -129,9 +130,18 @@ button {
   cursor: pointer;
 }
 
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  text-decoration: none;
+}
+
 button:hover,
 button:focus-visible,
-select:focus-visible {
+select:focus-visible,
+.button-link:hover,
+.button-link:focus-visible {
   border-color: #38bdf8;
   color: #fff;
   outline: 2px solid transparent;

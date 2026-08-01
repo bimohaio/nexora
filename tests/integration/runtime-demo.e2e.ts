@@ -101,7 +101,7 @@ test("phase 9 showcase exposes manager diagnostics, bounded values, and quality 
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
   await page.goto("/");
-  await expect(page.getByText("Validated · schema 1.0.0 · 18 nodes")).toBeVisible();
+  await expect(page.getByText("Validated · revision 1 · schema 1.0.0 · 18 nodes")).toBeVisible();
   await expect(page.locator("#datasource-diagnostics")).toContainText("browser-simulator");
   await expect(page.locator("#datasource-diagnostics")).toContainText("connected");
   await expect(page.locator("#datasource-diagnostics")).toContainText("1");
@@ -115,17 +115,48 @@ test("phase 9 showcase exposes manager diagnostics, bounded values, and quality 
   expect(browserErrors).toEqual([]);
 });
 
-test("designer mode selects entities without changing the persisted sample", async ({ page }) => {
+test("Designer edits and publishes a new document revision back to Runtime", async ({ page }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Designer" }).click();
-  await expect(page.locator("#mode-status")).toHaveText("Designer mode");
   await page.locator('[data-node-id="node_feed_pump"]').first().click();
   await expect(page.locator("#entity-inspector")).toContainText("P-101 Feed Pump");
   await expect(page.locator("#entity-inspector")).toContainText("process.centrifugal-pump");
 
-  await page.getByRole("button", { name: "Runtime", exact: true }).click();
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Open in Designer" }).click();
+  const designer = await popupPromise;
+  await expect(designer.locator("[data-scada-root]")).toBeVisible();
+  await expect(page.locator("#runtime-status")).not.toHaveText("RUNNING");
+  await expect(page.locator("#mode-status")).toContainText("Stopped for editing");
+  const designerNodes = designer.locator('[data-scada-root] [data-entity-type="node"]');
+  await expect(designerNodes).toHaveCount(18);
+  await expect(designer.locator("#symbol-total")).toHaveText("428");
+  await expect(designer.locator('[data-node-id="node_feed_pump"]').first()).toHaveAttribute(
+    "data-symbol-type",
+    "process.centrifugal-pump"
+  );
+  await expect(designer.locator("#status")).toContainText("Opened from Runtime");
+  expect(designer.url()).not.toContain("nexora-document");
+
+  const search = designer.getByRole("searchbox", { name: "Search symbols" });
+  await search.fill("gear pump");
+  const gearPump = designer.locator('[data-palette-symbol="pump.gear-pump"]');
+  await gearPump.first().locator(".symbol-insert").click();
+  await expect(designerNodes).toHaveCount(19);
+  await expect(designer.locator("#binding-panel")).toBeVisible();
+  await designer.locator('#binding-form input[name="source"]').fill("plant.pump.gear.state");
+  await designer.getByRole("button", { name: "Create binding" }).click();
+  await expect(designer.locator("#binding-form-status")).toContainText("Binding created");
+
+  await designer.getByRole("button", { name: "Validate", exact: true }).click();
+  await expect(designer.locator("#status")).toContainText("Document valid");
+  const reloaded = page.waitForEvent("load");
+  await designer.getByRole("button", { name: "Publish to Runtime" }).click();
+  await reloaded;
+  await expect(page.locator("#document-status")).toContainText("revision 2");
+  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(19);
+  await expect(page.locator('[data-symbol-type="pump.gear-pump"]')).toBeVisible();
   await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
-  await expect(page.locator('[data-node-id="node_feed_pump"]').first()).toBeVisible();
+  await designer.close();
 });
 
 test("external datasource choices degrade to configuration guidance", async ({ page }) => {
@@ -170,7 +201,7 @@ test("showcase remains usable at supported desktop and tablet viewports", async 
       page.getByRole("heading", { name: "Water Treatment Control Center" })
     ).toBeVisible();
     await expect(page.locator("[data-scada-root]")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Runtime", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open in Designer" })).toBeVisible();
     await expect(page.locator("#datasource-diagnostics")).toBeVisible();
   }
 });

@@ -1,4 +1,10 @@
-import { UlidEntityIdGenerator, type JsonValue, type ScadaNode } from "@web-scada/core";
+import {
+  UlidEntityIdGenerator,
+  parseDocumentJson,
+  serializeDocumentJson,
+  type JsonValue,
+  type ScadaNode
+} from "@web-scada/core";
 import {
   BindingAuthoringService,
   ConnectionTool,
@@ -26,18 +32,16 @@ import {
 import {
   SvgAccessibilityAdapter,
   SvgLiveRegionAdapter,
-  createInitialSvgSymbolRendererRegistry,
+  createIndustrialSymbolEnvironment,
   createSvgRenderer,
   resolveEntityMetadata,
+  validateDocumentSymbolEnvironment,
   zoomViewportAtPoint
 } from "@web-scada/renderer-svg";
-import {
-  createIndustrialSymbolRegistry,
-  createStandardSymbolCategoryRegistry,
-  type SymbolDefinition
-} from "@web-scada/symbols";
+import { type SymbolDefinition } from "@web-scada/symbols";
 
 import { DESIGNER_SAMPLE_DOCUMENT } from "./sample-document.js";
+import { resolveDesignerDocument } from "./document-handoff.js";
 import { DesignerOverlay } from "./overlay.js";
 import {
   loadSymbolLibraryPreferences,
@@ -55,7 +59,6 @@ import {
   type SymbolLibrarySort,
   type SymbolLibraryView
 } from "./symbol-library.js";
-import "./style.css";
 
 // The generic maps a known selector to its expected DOM subtype.
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
@@ -75,8 +78,15 @@ const symbolTotal = required<HTMLOutputElement>("#symbol-total");
 const symbolSearchClear = required<HTMLButtonElement>("#symbol-search-clear");
 const symbolCategoryMenu = required<HTMLDetailsElement>("#symbol-category-menu");
 const symbolCategoryLabel = required<HTMLElement>("#symbol-category-label");
+const symbolCategorySummaryIcon = required<HTMLElement>("#symbol-category-summary-icon");
 const symbolCategoryOptions = required<HTMLElement>("#symbol-category-options");
 const symbolSort = required<HTMLSelectElement>("#symbol-sort");
+const wideSymbolLibrary = window.matchMedia("(min-width: 1301px)");
+const synchronizeCategoryMenu = (): void => {
+  symbolCategoryMenu.open = wideSymbolLibrary.matches;
+};
+synchronizeCategoryMenu();
+wideSymbolLibrary.addEventListener("change", synchronizeCategoryMenu);
 const status = required<HTMLOutputElement>("#status");
 const viewportStatus = required<HTMLOutputElement>("#viewport-status");
 const inspector = required<HTMLFormElement>("#node-inspector");
@@ -84,20 +94,35 @@ const emptyInspector = required<HTMLElement>("#empty-inspector");
 const variantField = required<HTMLElement>("#variant-field");
 const undoButton = required<HTMLButtonElement>("#undo");
 const redoButton = required<HTMLButtonElement>("#redo");
+const validateDocumentButton = required<HTMLButtonElement>("#validate-document");
+const publishRuntimeButton = required<HTMLButtonElement>("#publish-runtime");
 const bindingPanel = required<HTMLElement>("#binding-panel");
 const bindingList = required<HTMLElement>("#binding-list");
 const bindingCount = required<HTMLOutputElement>("#binding-count");
 const bindingForm = required<HTMLFormElement>("#binding-form");
 const bindingFormStatus = required<HTMLOutputElement>("#binding-form-status");
 const bindingSourceLabel = required<HTMLElement>("#binding-source-label");
-const symbols = createIndustrialSymbolRegistry();
-const symbolCategories = createStandardSymbolCategoryRegistry();
-const symbolVisuals = createInitialSvgSymbolRendererRegistry();
+const {
+  symbolRegistry: symbols,
+  categoryRegistry: symbolCategories,
+  svgVisualRegistry: symbolVisuals
+} = createIndustrialSymbolEnvironment();
+const designerBootstrap = resolveDesignerDocument(window.location.hash, DESIGNER_SAMPLE_DOCUMENT, {
+  symbolRegistry: symbols,
+  categoryRegistry: symbolCategories,
+  svgVisualRegistry: symbolVisuals
+});
+if (designerBootstrap.openedFromRuntime) {
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+  document.title = `${designerBootstrap.document.metadata.name} — Nexora Designer`;
+  status.value = `Opened from Runtime · ${designerBootstrap.document.metadata.name}`;
+}
 const ids = new UlidEntityIdGenerator();
 const overlay = new DesignerOverlay(overlayElement);
 
 const renderer = createSvgRenderer({
   symbols,
+  symbolRenderers: symbolVisuals,
   options: {
     showGrid: true,
     showPorts: true,
@@ -122,7 +147,7 @@ const renderer = createSvgRenderer({
 });
 renderer.mount(rendererHost);
 const designer: DesignerController = createDesignerEngine({
-  document: DESIGNER_SAMPLE_DOCUMENT,
+  document: designerBootstrap.document,
   symbols,
   renderer,
   idGenerator: ids
@@ -132,6 +157,109 @@ const bindingAuthoring = new BindingAuthoringService({
   symbols,
   idGenerator: ids
 });
+let publishedDocumentJson = serializeDocumentJson(designerBootstrap.document);
+let publishing = false;
+
+function validateCurrentDocument(): string {
+  const serialized = serializeDocumentJson(designer.getState().document);
+  if (!serialized.success) throw new Error(serialized.error);
+  const parsed = parseDocumentJson(serialized.json, { symbolRegistry: symbols });
+  if (!parsed.success) throw new Error(parsed.issues.map(({ message }) => message).join("; "));
+  const symbolValidation = validateDocumentSymbolEnvironment(parsed.document, {
+    symbolRegistry: symbols,
+    categoryRegistry: symbolCategories,
+    svgVisualRegistry: symbolVisuals
+  });
+  if (!symbolValidation.valid)
+    throw new Error(
+      symbolValidation.diagnostics
+        .map(({ code, nodeId, symbolType }) => `${code}:${nodeId}:${symbolType}`)
+        .join("; ")
+    );
+  return serialized.json;
+}
+
+function updatePublishAvailability(): void {
+  const current = serializeDocumentJson(designer.getState().document);
+  publishRuntimeButton.disabled =
+    !designerBootstrap.openedFromRuntime ||
+    publishing ||
+    !current.success ||
+    (publishedDocumentJson.success && current.json === publishedDocumentJson.json);
+}
+
+validateDocumentButton.addEventListener("click", () => {
+  try {
+    validateCurrentDocument();
+    status.value = "Document valid · ready to publish";
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : String(error);
+  }
+});
+
+publishRuntimeButton.addEventListener("click", () => {
+  try {
+    const documentJson = validateCurrentDocument();
+    if (
+      !designerBootstrap.openedFromRuntime ||
+      designerBootstrap.sessionId === undefined ||
+      designerBootstrap.runtimeOrigin === undefined ||
+      designerBootstrap.baseRevision === undefined ||
+      window.opener === null
+    )
+      throw new Error("Runtime editing session is no longer available.");
+    publishing = true;
+    updatePublishAvailability();
+    status.value = "Publishing validated document to Runtime…";
+    window.opener.postMessage(
+      {
+        type: "nexora:publish-document",
+        sessionId: designerBootstrap.sessionId,
+        documentId: designer.getState().document.id,
+        baseRevision: designerBootstrap.baseRevision,
+        documentJson
+      },
+      designerBootstrap.runtimeOrigin
+    );
+  } catch (error) {
+    publishing = false;
+    updatePublishAvailability();
+    status.value = error instanceof Error ? error.message : String(error);
+  }
+});
+
+function receiveRuntimePublishResult(event: MessageEvent<unknown>): void {
+  if (
+    designerBootstrap.runtimeOrigin === undefined ||
+    designerBootstrap.sessionId === undefined ||
+    event.origin !== designerBootstrap.runtimeOrigin ||
+    event.source !== window.opener ||
+    typeof event.data !== "object" ||
+    event.data === null ||
+    !("type" in event.data) ||
+    !("sessionId" in event.data) ||
+    event.data.sessionId !== designerBootstrap.sessionId
+  )
+    return;
+  if (event.data.type === "nexora:publish-accepted") {
+    publishedDocumentJson = serializeDocumentJson(designer.getState().document);
+    publishing = false;
+    updatePublishAvailability();
+    status.value =
+      "revision" in event.data && typeof event.data.revision === "number"
+        ? `Published · Runtime revision ${String(event.data.revision)} is reloading`
+        : "Published · Runtime is reloading";
+  } else if (event.data.type === "nexora:publish-rejected") {
+    publishing = false;
+    updatePublishAvailability();
+    status.value =
+      "reason" in event.data && typeof event.data.reason === "string"
+        ? `Publish rejected · ${event.data.reason}`
+        : "Publish rejected by Runtime";
+  }
+}
+window.addEventListener("message", receiveRuntimePublishResult);
+updatePublishAvailability();
 const contrastPreference = window.matchMedia("(forced-colors: active)");
 const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 const accessibility = createDesignerAccessibilityEngine({
@@ -808,6 +936,39 @@ const categoriesWithCounts = symbolCategories
     count: libraryItems.filter(({ definition }) => definition.category === category.id).length
   }))
   .filter(({ count }) => count > 0);
+
+const categoryIcons: Readonly<Record<string, string>> = Object.freeze({
+  "": "⌕",
+  basic: "□",
+  "indicators-alarms": "◉",
+  "hmi-controls": "▣",
+  valves: "⋈",
+  pumps: "◉",
+  "motors-drives": "Ⓜ",
+  "pipes-connectors": "⌁",
+  "tanks-vessels": "▤",
+  "conveyors-material-handling": "⌁",
+  "process-equipment": "⚙",
+  "instruments-sensors": "⌖",
+  electrical: "ϟ",
+  hvac: "❄",
+  "displays-visualization": "▧",
+  "navigation-layout": "⌘",
+  "utilities-authoring": "◇",
+  "robotics-automation": "♙",
+  "oil-gas": "♨",
+  process: "⌬",
+  instrumentation: "⌾",
+  bms: "⌂",
+  safety: "△",
+  "network-control": "⌘",
+  custom: "✦"
+});
+
+function categoryIcon(categoryId: string): string {
+  return categoryIcons[categoryId] ?? "◇";
+}
+
 for (const option of [
   { id: "", displayName: "All categories", count: libraryItems.length },
   ...categoriesWithCounts.map(({ category, count }) => ({
@@ -822,14 +983,25 @@ for (const option of [
   button.dataset.category = option.id;
   button.setAttribute("aria-selected", String(option.id === activeCategory));
   const name = document.createElement("span");
-  name.textContent = option.displayName;
+  name.className = "symbol-category-option-label";
+  const icon = document.createElement("span");
+  icon.className = "symbol-category-icon";
+  icon.dataset.categoryIcon = option.id || "all";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = categoryIcon(option.id);
+  const label = document.createElement("span");
+  label.textContent = option.displayName;
+  name.append(icon, label);
   const count = document.createElement("span");
+  count.className = "symbol-category-count";
   count.textContent = String(option.count);
   button.append(name, count);
   button.addEventListener("click", () => {
     activeCategory = option.id;
     symbolCategoryLabel.textContent = option.displayName;
-    symbolCategoryMenu.open = false;
+    symbolCategorySummaryIcon.textContent = categoryIcon(option.id);
+    symbolCategorySummaryIcon.dataset.categoryIcon = option.id || "all";
+    if (!wideSymbolLibrary.matches) symbolCategoryMenu.open = false;
     for (const categoryButton of symbolCategoryOptions.querySelectorAll("button"))
       categoryButton.setAttribute(
         "aria-selected",
@@ -1191,6 +1363,7 @@ designer.subscribeState(({ state }) => {
   redoButton.disabled = !state.canRedo;
   viewportStatus.value = `${String(Math.round(state.viewport.zoom * 100))}%`;
   status.value = `${String(state.selection.selectedNodeIds.length)} nodes · ${String(state.selection.selectedConnectionIds.length)} connections`;
+  updatePublishAvailability();
 });
 
 const observer = new ResizeObserver(resizeCanvas);
@@ -1201,6 +1374,7 @@ renderInspector();
 renderBindings();
 
 window.addEventListener("beforeunload", () => {
+  window.removeEventListener("message", receiveRuntimePublishResult);
   contrastPreference.removeEventListener("change", updateAccessibilityPreferences);
   motionPreference.removeEventListener("change", updateAccessibilityPreferences);
   accessibility.dispose();

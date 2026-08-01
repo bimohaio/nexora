@@ -53,7 +53,7 @@ button:disabled {
   grid-template:
     "topbar topbar topbar" 3.6rem
     "palette canvas inspector" minmax(0, 1fr) /
-    15rem minmax(0, 1fr) 23rem;
+    28rem minmax(0, 1fr) 23rem;
   width: 100vw;
   height: 100vh;
   background: #07111f;
@@ -175,18 +175,20 @@ input {
   --symbol-text: #e2e8f0;
   --symbol-muted: #7890a9;
   --symbol-accent: #22d3ee;
-  padding: 0 0.7rem 1rem;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 0;
   scrollbar-color: #28516a transparent;
+  overflow: hidden;
 }
 
 .symbol-library-sticky {
-  position: sticky;
   z-index: 4;
-  top: 0;
   display: grid;
   gap: 0.55rem;
-  padding: 0.8rem 0 0.7rem;
-  background: linear-gradient(#091827 88%, rgb(9 24 39 / 0%));
+  padding: 0.8rem;
+  border-bottom: 1px solid var(--symbol-border);
+  background: #091827;
 }
 
 .symbol-library-header {
@@ -251,19 +253,91 @@ input {
   position: relative;
 }
 
+.symbol-library-layout {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.symbol-category-navigation {
+  min-width: 0;
+  min-height: 0;
+  padding: 0.7rem 0.45rem;
+  border-right: 1px solid var(--symbol-border);
+  background: #081522;
+  overflow: auto;
+}
+
+.symbol-category-navigation > p {
+  margin: 0 0.45rem 0.5rem;
+  color: #7dd3fc;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.symbol-library-browser {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  background: #091827;
+}
+
 .symbol-category-menu summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 2.15rem;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid var(--symbol-border);
+  min-height: 2rem;
+  padding: 0.42rem 0.5rem;
+  border: 0;
   border-radius: 0.5rem;
   color: var(--symbol-text);
-  background: var(--symbol-surface);
+  background: #0c3450;
   cursor: pointer;
   font-size: 0.69rem;
   list-style: none;
+}
+
+.symbol-category-summary-label,
+.symbol-category-option-label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.42rem;
+}
+
+.symbol-category-icon {
+  display: inline-grid;
+  flex: 0 0 1rem;
+  width: 1rem;
+  height: 1rem;
+  place-items: center;
+  color: #38bdf8;
+  font-family: Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.symbol-category-icon[data-category-icon="valves"],
+.symbol-category-icon[data-category-icon="hmi-controls"],
+.symbol-category-icon[data-category-icon="robotics-automation"] {
+  color: #4ade80;
+}
+
+.symbol-category-icon[data-category-icon="electrical"],
+.symbol-category-icon[data-category-icon="oil-gas"],
+.symbol-category-icon[data-category-icon="safety"] {
+  color: #facc15;
+}
+
+.symbol-category-icon[data-category-icon="motors-drives"],
+.symbol-category-icon[data-category-icon="tanks-vessels"],
+.symbol-category-icon[data-category-icon="process-equipment"] {
+  color: #94a3b8;
 }
 
 .symbol-category-menu summary::-webkit-details-marker {
@@ -271,25 +345,16 @@ input {
 }
 
 .symbol-category-options {
-  position: absolute;
-  z-index: 8;
-  top: calc(100% + 0.25rem);
-  right: 0;
-  left: 0;
+  position: static;
   display: grid;
-  max-height: 18rem;
-  padding: 0.35rem;
-  border: 1px solid var(--symbol-border-strong);
-  border-radius: 0.55rem;
-  background: #071522;
-  box-shadow: 0 14px 35px rgb(0 0 0 / 38%);
-  overflow: auto;
+  padding-top: 0.35rem;
 }
 
 .symbol-category-options button {
   display: flex;
   justify-content: space-between;
-  padding: 0.45rem 0.5rem;
+  min-width: 0;
+  padding: 0.46rem 0.5rem;
   border: 0;
   background: transparent;
   font-size: 0.66rem;
@@ -301,11 +366,28 @@ input {
   background: #0e3a4c;
 }
 
+.symbol-category-option-label > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.symbol-category-count {
+  margin-left: 0.3rem;
+  color: var(--symbol-muted);
+  font-size: 0.57rem;
+}
+
 .symbol-library-toolbar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.35rem;
+  min-height: 2.7rem;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--symbol-border);
+  background: #091827;
 }
 
 .symbol-library-toolbar output {
@@ -345,8 +427,11 @@ input {
 
 .symbol-palette {
   display: grid;
+  align-content: start;
   gap: 0.55rem;
-  padding-top: 0.25rem;
+  min-height: 0;
+  padding: 0.45rem 0.55rem 1rem;
+  overflow: auto;
 }
 
 .symbol-category-section {
@@ -396,7 +481,7 @@ input {
 }
 
 .symbol-items-grid {
-  grid-template-columns: repeat(auto-fill, minmax(6.15rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(3.9rem, 1fr));
 }
 
 .symbol-items-list {
@@ -438,7 +523,7 @@ input {
 }
 
 .symbol-items-grid .symbol-insert {
-  grid-template-rows: 3.5rem minmax(2.35rem, auto);
+  grid-template-rows: 3.35rem minmax(2.15rem, auto);
   align-items: center;
 }
 
@@ -475,7 +560,7 @@ input {
   display: -webkit-box;
   min-height: 1.65em;
   color: var(--symbol-text);
-  font-size: 0.66rem;
+  font-size: 0.59rem;
   font-weight: 650;
   line-height: 1.25;
   overflow: hidden;
@@ -489,10 +574,14 @@ input {
   gap: 0.1rem;
 }
 
+.symbol-items-grid .symbol-secondary {
+  display: none;
+}
+
 .symbol-secondary code,
 .symbol-secondary small {
   color: var(--symbol-muted);
-  font-size: 0.52rem;
+  font-size: 0.47rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -605,6 +694,11 @@ input {
   stroke: #22d3ee;
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
+}
+
+.selection-outline-interactive {
+  pointer-events: all;
+  cursor: move;
 }
 
 .hover-outline {
@@ -931,4 +1025,48 @@ input {
 .binding-form-status {
   min-height: 1rem;
   font-size: 0.64rem;
+}
+
+@media (max-width: 1300px) {
+  .designer-shell {
+    grid-template:
+      "topbar topbar topbar" 3.6rem
+      "palette canvas inspector" minmax(0, 1fr) /
+      16rem minmax(0, 1fr) 23rem;
+  }
+
+  .symbol-library-layout {
+    grid-template: auto minmax(0, 1fr) / minmax(0, 1fr);
+  }
+
+  .symbol-category-navigation {
+    position: relative;
+    padding: 0.45rem 0.7rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--symbol-border);
+    overflow: visible;
+  }
+
+  .symbol-category-navigation > p {
+    display: none;
+  }
+
+  .symbol-category-options {
+    position: absolute;
+    z-index: 8;
+    top: calc(100% + 0.2rem);
+    right: 0;
+    left: 0;
+    max-height: 18rem;
+    padding: 0.35rem;
+    border: 1px solid var(--symbol-border-strong);
+    border-radius: 0.55rem;
+    background: #071522;
+    box-shadow: 0 14px 35px rgb(0 0 0 / 38%);
+    overflow: auto;
+  }
+
+  .symbol-items-grid {
+    grid-template-columns: repeat(auto-fill, minmax(6.15rem, 1fr));
+  }
 }

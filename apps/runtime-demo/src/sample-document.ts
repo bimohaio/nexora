@@ -1,5 +1,5 @@
 import type { PropertyBinding, ScadaConnection, ScadaDocument, ScadaNode } from "@web-scada/core";
-import { INDUSTRIAL_SYMBOL_TYPES } from "@web-scada/symbols";
+import { CORE_SYMBOL_TYPES, INDUSTRIAL_SYMBOL_TYPES } from "@web-scada/symbols";
 
 const PROCESS = "layer_process";
 const INSTRUMENTS = "layer_instruments";
@@ -176,7 +176,7 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
     { id: CONTROL, name: "Control", order: 2, visible: true, locked: false }
   ],
   nodes: [
-    node("node_title", "Process title", "basic.text", 60, 32, 900, 48, {
+    node("node_title", "Process title", CORE_SYMBOL_TYPES.text, 60, 32, 900, 48, {
       text: "WATER TREATMENT · RUNTIME CONTROL LINE",
       fontSize: 26,
       fill: "#e2e8f0"
@@ -326,7 +326,7 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
     node(
       "node_flow_readout",
       "Flow readout",
-      "basic.text",
+      CORE_SYMBOL_TYPES.text,
       535,
       90,
       150,
@@ -342,7 +342,7 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
     node(
       "node_pressure_readout",
       "Pressure readout",
-      "basic.text",
+      CORE_SYMBOL_TYPES.text,
       810,
       90,
       150,
@@ -358,7 +358,7 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
     node(
       "node_temperature_readout",
       "Temperature readout",
-      "basic.text",
+      CORE_SYMBOL_TYPES.text,
       700,
       620,
       160,
@@ -374,7 +374,7 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
     node(
       "node_level_readout",
       "Clean level readout",
-      "basic.text",
+      CORE_SYMBOL_TYPES.text,
       1135,
       90,
       160,

@@ -1,8 +1,10 @@
-import { parseDocument, serializeDocumentJson } from "@web-scada/core";
+import { parseDocument, parseDocumentJson, serializeDocumentJson } from "@web-scada/core";
 import { createDesignerEngine, type DesignerController } from "@web-scada/designer-engine";
 import {
+  createIndustrialSymbolEnvironment,
   createSvgRenderer,
   resolveEntityMetadata,
+  validateDocumentSymbolEnvironment,
   type RendererEvent
 } from "@web-scada/renderer-svg";
 import {
@@ -10,11 +12,15 @@ import {
   createRuntimeRenderPipeline,
   type RuntimeEngineEvent
 } from "@web-scada/runtime-engine";
-import { createExampleSymbolRegistry } from "@web-scada/symbols";
-
+import {
+  PUBLISHED_DOCUMENT_STORAGE_KEY,
+  PUBLISHED_REVISION_STORAGE_KEY,
+  createDesignerHandoffUrl,
+  isPublishDocumentMessage,
+  resolveDesignerUrl
+} from "./designer-handoff.js";
 import { WATER_TREATMENT_DOCUMENT } from "./sample-document.js";
 import { ManagedSimulatorProvider } from "./simulated-provider.js";
-import "./style.css";
 
 // The generic maps a known selector to its expected DOM subtype.
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
@@ -38,17 +44,40 @@ const entityInspector = required<HTMLElement>("#entity-inspector");
 const errorRegion = required<HTMLElement>("#error-region");
 const datasourceSelect = required<HTMLSelectElement>("#datasource-select");
 const adapterConfig = required<HTMLElement>("#adapter-config");
+const openDesigner = required<HTMLButtonElement>("#open-designer");
 
-const parsed = parseDocument(WATER_TREATMENT_DOCUMENT);
+const symbolEnvironment = createIndustrialSymbolEnvironment();
+const { symbolRegistry: symbols, svgVisualRegistry: symbolVisuals } = symbolEnvironment;
+const storedDocumentJson = window.sessionStorage.getItem(PUBLISHED_DOCUMENT_STORAGE_KEY);
+const parsed =
+  storedDocumentJson === null
+    ? parseDocument(WATER_TREATMENT_DOCUMENT, { symbolRegistry: symbols })
+    : parseDocumentJson(storedDocumentJson, { symbolRegistry: symbols });
 if (!parsed.success) throw new Error(parsed.issues.map(({ message }) => message).join("; "));
 const documentModel = parsed.document;
 const serializedDesign = serializeDocumentJson(documentModel);
 if (!serializedDesign.success) throw new Error(serializedDesign.error);
 const serializedDesignJson = serializedDesign.json;
-documentStatus.value = `Validated · schema ${documentModel.schemaVersion} · ${String(documentModel.nodes.length)} nodes`;
+const configuredDesignerUrl = document
+  .querySelector<HTMLMetaElement>('meta[name="nexora-designer-url"]')
+  ?.content.trim();
+const designerUrl = resolveDesignerUrl(
+  new URL(window.location.href),
+  configuredDesignerUrl === "" ? undefined : configuredDesignerUrl
+);
+const storedRevision = Number(window.sessionStorage.getItem(PUBLISHED_REVISION_STORAGE_KEY) ?? "1");
+const publishedRevision =
+  Number.isInteger(storedRevision) && storedRevision >= 1 ? storedRevision : 1;
+documentStatus.value = `Validated · revision ${String(publishedRevision)} · schema ${documentModel.schemaVersion} · ${String(documentModel.nodes.length)} nodes`;
 
 const provider = new ManagedSimulatorProvider();
-const symbols = createExampleSymbolRegistry();
+const symbolValidation = validateDocumentSymbolEnvironment(documentModel, symbolEnvironment);
+if (!symbolValidation.valid)
+  throw new Error(
+    symbolValidation.diagnostics
+      .map(({ code, nodeId, symbolType }) => `${code}:${nodeId}:${symbolType}`)
+      .join("; ")
+  );
 const runtime = createRuntimeEngine({
   document: documentModel,
   provider,
@@ -58,9 +87,10 @@ const runtime = createRuntimeEngine({
 
 let showGrid = true;
 let showPorts = true;
-let runtimeMode = true;
 let subscribed = true;
 let selectedId: string | undefined;
+let editingWindow: Window | null = null;
+let editingSessionId: string | undefined;
 
 function updateViewportStatus(event?: RendererEvent): void {
   if (event !== undefined && event.type !== "viewport-changed") return;
@@ -70,6 +100,7 @@ function updateViewportStatus(event?: RendererEvent): void {
 
 const renderer = createSvgRenderer({
   symbols,
+  symbolRenderers: symbolVisuals,
   runtimeState: runtime.visualState,
   onEvent: updateViewportStatus,
   options: {
@@ -160,16 +191,6 @@ function updateDatasourcePanels(): void {
   );
 }
 
-function setMode(mode: "designer" | "runtime"): void {
-  runtimeMode = mode === "runtime";
-  required<HTMLButtonElement>("#designer-mode").ariaPressed = String(!runtimeMode);
-  required<HTMLButtonElement>("#runtime-mode").ariaPressed = String(runtimeMode);
-  modeStatus.value = runtimeMode ? "Runtime mode" : "Designer mode";
-  viewer.dataset.mode = mode;
-  if (runtimeMode) void startRuntime();
-  else void stopRuntime();
-}
-
 async function startRuntime(): Promise<void> {
   try {
     subscribed = true;
@@ -253,14 +274,101 @@ updateDatasourcePanels();
 showAdapterConfiguration();
 void startRuntime();
 
-required<HTMLButtonElement>("#designer-mode").addEventListener("click", () => {
-  setMode("designer");
+openDesigner.addEventListener("click", () => {
+  const sessionId = crypto.randomUUID();
+  const handoffUrl = createDesignerHandoffUrl(designerUrl, serializedDesignJson, {
+    sessionId,
+    runtimeOrigin: window.location.origin,
+    baseRevision: publishedRevision
+  });
+  const popup = window.open(handoffUrl, "_blank");
+  if (popup === null) {
+    showError(new Error("Designer could not be opened. Allow pop-ups and try again."));
+    return;
+  }
+  editingWindow = popup;
+  editingSessionId = sessionId;
+  openDesigner.disabled = true;
+  modeStatus.value = `Stopping Runtime for editing · revision ${String(publishedRevision)}`;
+  void stopRuntime()
+    .then(() => {
+      modeStatus.value = `Stopped for editing · revision ${String(publishedRevision)}`;
+    })
+    .catch((error: unknown) => {
+      popup.close();
+      editingWindow = null;
+      editingSessionId = undefined;
+      openDesigner.disabled = false;
+      showError(error);
+    });
 });
-required<HTMLButtonElement>("#runtime-mode").addEventListener("click", () => {
-  setMode("runtime");
-});
+
+function receiveDesignerPublish(event: MessageEvent<unknown>): void {
+  if (
+    event.origin !== designerUrl.origin ||
+    event.source !== editingWindow ||
+    !isPublishDocumentMessage(event.data) ||
+    event.data.sessionId !== editingSessionId
+  )
+    return;
+  const message = event.data;
+  if (message.documentId !== documentModel.id || message.baseRevision !== publishedRevision) {
+    editingWindow?.postMessage(
+      {
+        type: "nexora:publish-rejected",
+        sessionId: message.sessionId,
+        reason: "The Runtime document revision changed. Reopen Designer from Runtime."
+      },
+      designerUrl.origin
+    );
+    return;
+  }
+  const candidate = parseDocumentJson(message.documentJson, { symbolRegistry: symbols });
+  if (!candidate.success) {
+    editingWindow?.postMessage(
+      {
+        type: "nexora:publish-rejected",
+        sessionId: message.sessionId,
+        reason: candidate.issues.map(({ message: issue }) => issue).join("; ")
+      },
+      designerUrl.origin
+    );
+    return;
+  }
+  const validation = validateDocumentSymbolEnvironment(candidate.document, symbolEnvironment);
+  if (!validation.valid) {
+    editingWindow?.postMessage(
+      {
+        type: "nexora:publish-rejected",
+        sessionId: message.sessionId,
+        reason: validation.diagnostics.map(({ code }) => code).join("; ")
+      },
+      designerUrl.origin
+    );
+    return;
+  }
+  const nextRevision = publishedRevision + 1;
+  window.sessionStorage.setItem(PUBLISHED_DOCUMENT_STORAGE_KEY, message.documentJson);
+  window.sessionStorage.setItem(PUBLISHED_REVISION_STORAGE_KEY, String(nextRevision));
+  editingWindow?.postMessage(
+    {
+      type: "nexora:publish-accepted",
+      sessionId: message.sessionId,
+      revision: nextRevision
+    },
+    designerUrl.origin
+  );
+  modeStatus.value = `Reloading published revision ${String(nextRevision)}`;
+  window.setTimeout(() => window.location.reload(), 0);
+}
+window.addEventListener("message", receiveDesignerPublish);
+
 required<HTMLButtonElement>("#runtime-start").addEventListener("click", () => {
-  setMode("runtime");
+  editingWindow = null;
+  editingSessionId = undefined;
+  openDesigner.disabled = false;
+  modeStatus.value = `Runtime viewer · revision ${String(publishedRevision)}`;
+  void startRuntime();
 });
 required<HTMLButtonElement>("#runtime-stop").addEventListener("click", () => {
   void stopRuntime();
@@ -345,7 +453,7 @@ let pointerId: number | undefined;
 let lastPoint: { readonly x: number; readonly y: number } | undefined;
 viewer.addEventListener("pointerdown", (event) => {
   const metadata = resolveEntityMetadata(event.target);
-  if (!runtimeMode && metadata.entityId !== undefined) {
+  if (metadata.entityId !== undefined) {
     selectedId = metadata.nodeId ?? metadata.entityId;
     if (metadata.entityType === "node" && metadata.nodeId !== undefined)
       designer.selectNode(metadata.nodeId);
@@ -380,6 +488,7 @@ const observer = new ResizeObserver(([entry]) => {
 observer.observe(viewer);
 
 async function dispose(): Promise<void> {
+  window.removeEventListener("message", receiveDesignerPublish);
   observer.disconnect();
   unobserveProvider();
   unsubscribeRuntime();

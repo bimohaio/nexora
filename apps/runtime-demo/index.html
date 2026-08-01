@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nexora — Phase 9 System Showcase</title>
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <main class="shell">
@@ -13,10 +14,7 @@
           <h1>Water Treatment Control Center</h1>
         </div>
         <div class="controls" aria-label="Application controls">
-          <div class="segmented" role="group" aria-label="Application mode">
-            <button id="designer-mode" type="button" aria-pressed="false">Designer</button>
-            <button id="runtime-mode" type="button" aria-pressed="true">Runtime</button>
-          </div>
+          <button id="open-designer" type="button">Open in Designer</button>
           <button id="runtime-start" type="button">Start runtime</button>
           <button id="runtime-stop" type="button">Stop runtime</button>
           <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
@@ -75,7 +73,7 @@
 
         <section class="canvas-column">
           <div class="canvas-heading">
-            <output id="mode-status">Runtime mode</output>
+            <output id="mode-status">Runtime viewer · select an entity to inspect</output>
             <output id="viewport-status">x 0 · y 0 · 100%</output>
           </div>
           <section

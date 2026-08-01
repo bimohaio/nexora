@@ -566,8 +566,19 @@ const rectanglePorts: readonly PortDefinition[] = [
 ];
 const noPorts: readonly PortDefinition[] = [];
 
+export const CORE_SYMBOL_TYPES = Object.freeze({
+  rectangle: "basic.rectangle",
+  text: "basic.text",
+  tank: "equipment.tank",
+  pump: "equipment.pump",
+  valve: "equipment.valve",
+  motor: "equipment.motor",
+  sensor: "equipment.sensor",
+  indicator: "equipment.indicator"
+} as const);
+
 export const RECTANGLE_SYMBOL: SymbolDefinition = {
-  type: "basic.rectangle",
+  type: CORE_SYMBOL_TYPES.rectangle,
   displayNameKey: "symbols.rectangle",
   descriptionKey: "symbols.rectangle.description",
   category: "basic",
@@ -590,10 +601,10 @@ export const RECTANGLE_SYMBOL: SymbolDefinition = {
 };
 
 export const TEXT_SYMBOL: SymbolDefinition = {
-  type: "basic.text",
+  type: CORE_SYMBOL_TYPES.text,
   displayNameKey: "symbols.text",
   descriptionKey: "symbols.text.description",
-  category: "text",
+  category: "basic",
   defaultWidth: 160,
   defaultHeight: 32,
   minimumWidth: 20,
@@ -679,7 +690,7 @@ function equipmentSymbol(
   };
 }
 
-const tankBase = equipmentSymbol("equipment.tank", "tank", 140, 220);
+const tankBase = equipmentSymbol(CORE_SYMBOL_TYPES.tank, "tanks-vessels", 140, 220);
 export const TANK_SYMBOL: SymbolDefinition = {
   ...tankBase,
   editableProperties: [
@@ -696,9 +707,9 @@ export const TANK_SYMBOL: SymbolDefinition = {
   ],
   bindableProperties: [...tankBase.bindableProperties, { key: "level", dataTypes: ["number"] }]
 };
-export const PUMP_SYMBOL = equipmentSymbol("equipment.pump", "pump", 120, 90);
-export const VALVE_SYMBOL = equipmentSymbol("equipment.valve", "valve", 90, 70);
-export const MOTOR_SYMBOL = equipmentSymbol("equipment.motor", "motor", 110, 90, [
+export const PUMP_SYMBOL = equipmentSymbol(CORE_SYMBOL_TYPES.pump, "pumps", 120, 90);
+export const VALVE_SYMBOL = equipmentSymbol(CORE_SYMBOL_TYPES.valve, "valves", 90, 70);
+export const MOTOR_SYMBOL = equipmentSymbol(CORE_SYMBOL_TYPES.motor, "motors-drives", 110, 90, [
   {
     id: "shaft",
     label: "Shaft",
@@ -718,37 +729,49 @@ export const MOTOR_SYMBOL = equipmentSymbol("equipment.motor", "motor", 110, 90,
     acceptedDirections: ["output", "bidirectional"]
   }
 ]);
-export const SENSOR_SYMBOL = equipmentSymbol("equipment.sensor", "sensor", 72, 72, [
-  {
-    id: "process",
-    label: "Process",
-    position: { x: 0.5, y: 1 },
-    direction: "input",
-    medium: "generic",
-    acceptedMediums: [],
-    acceptedDirections: ["output", "bidirectional", "passive"]
-  },
-  {
-    id: "signal",
-    label: "Signal",
-    position: { x: 1, y: 0.5 },
-    direction: "output",
-    medium: "signal",
-    acceptedMediums: [],
-    acceptedDirections: ["input", "bidirectional"]
-  }
-]);
-export const INDICATOR_SYMBOL = equipmentSymbol("equipment.indicator", "indicator", 56, 56, [
-  {
-    id: "signal",
-    label: "Signal",
-    position: { x: 0, y: 0.5 },
-    direction: "input",
-    medium: "signal",
-    acceptedMediums: [],
-    acceptedDirections: ["output", "bidirectional"]
-  }
-]);
+export const SENSOR_SYMBOL = equipmentSymbol(
+  CORE_SYMBOL_TYPES.sensor,
+  "instruments-sensors",
+  72,
+  72,
+  [
+    {
+      id: "process",
+      label: "Process",
+      position: { x: 0.5, y: 1 },
+      direction: "input",
+      medium: "generic",
+      acceptedMediums: [],
+      acceptedDirections: ["output", "bidirectional", "passive"]
+    },
+    {
+      id: "signal",
+      label: "Signal",
+      position: { x: 1, y: 0.5 },
+      direction: "output",
+      medium: "signal",
+      acceptedMediums: [],
+      acceptedDirections: ["input", "bidirectional"]
+    }
+  ]
+);
+export const INDICATOR_SYMBOL = equipmentSymbol(
+  CORE_SYMBOL_TYPES.indicator,
+  "indicators-alarms",
+  56,
+  56,
+  [
+    {
+      id: "signal",
+      label: "Signal",
+      position: { x: 0, y: 0.5 },
+      direction: "input",
+      medium: "signal",
+      acceptedMediums: [],
+      acceptedDirections: ["output", "bidirectional"]
+    }
+  ]
+);
 
 export const INITIAL_SYMBOLS: readonly SymbolDefinition[] = [
   RECTANGLE_SYMBOL,
@@ -773,6 +796,7 @@ export function createIndustrialSymbolRegistry(): InMemorySymbolRegistry {
   return registry;
 }
 
+/** @deprecated Applications should use the renderer package's industrial symbol environment. */
 export function createExampleSymbolRegistry(): InMemorySymbolRegistry {
   return createIndustrialSymbolRegistry();
 }

@@ -4,7 +4,7 @@ test("symbol gallery renders the complete catalog and preview controls", async (
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Industrial Symbol Library" })).toBeVisible();
   await expect(page.locator("article[data-symbol-type]")).toHaveCount(428);
-  await expect(page.locator("[data-category]")).toHaveCount(30);
+  await expect(page.locator("[data-category]")).toHaveCount(23);
   await expect.poll(async () => page.locator("[data-scada-root]").count()).toBeGreaterThan(0);
 
   await page.getByLabel("Runtime state").selectOption("alarm");

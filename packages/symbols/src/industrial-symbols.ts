@@ -526,7 +526,7 @@ export const INDUSTRIAL_SYMBOLS: readonly SymbolDefinition[] = [
   }),
   industrialSymbol({
     type: INDUSTRIAL_SYMBOL_TYPES.lamp,
-    category: "indicator",
+    category: "indicators-alarms",
     width: 64,
     height: 64,
     ports: [port("signal", "Signal", 0, 0.5, "input", "signal")],

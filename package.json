@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --filter @web-scada/designer-demo dev",
     "dev:runtime": "pnpm --filter @web-scada/runtime-demo dev",
+    "dev:scada": "pnpm --parallel --filter @web-scada/runtime-demo --filter @web-scada/designer-demo run dev:integrated",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm --recursive --filter './packages/**' --if-present build && pnpm -r --if-present typecheck",
     "lint": "eslint .",

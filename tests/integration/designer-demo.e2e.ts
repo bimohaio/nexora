@@ -147,7 +147,7 @@ test("symbol library searches, persists preferences, inserts, drags, and preserv
   await expect(
     gearPump.getByRole("button", { name: /Remove Gear Pump from favorites/ })
   ).toHaveAttribute("aria-pressed", "true");
-  const renderedNodes = page.locator('[data-entity-type="node"]');
+  const renderedNodes = page.locator('[data-scada-root] [data-entity-type="node"]');
   await expect(renderedNodes).toHaveCount(5);
 
   await page.getByRole("button", { name: "List view" }).click();

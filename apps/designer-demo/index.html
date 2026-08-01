@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Web SCADA Designer</title>
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div class="designer-shell">
@@ -27,6 +28,8 @@
           <button id="redo" type="button" aria-label="Redo" disabled>↷</button>
           <button id="fit" type="button">Fit</button>
           <button id="center-selection" type="button">Center selection</button>
+          <button id="validate-document" type="button">Validate</button>
+          <button id="publish-runtime" type="button" disabled>Publish to Runtime</button>
         </div>
       </header>
 
@@ -47,35 +50,50 @@
               ×
             </button>
           </label>
-          <details id="symbol-category-menu" class="symbol-category-menu">
-            <summary>
-              <span id="symbol-category-label">All categories</span>
-              <span aria-hidden="true">⌄</span>
-            </summary>
-            <div
-              id="symbol-category-options"
-              class="symbol-category-options"
-              role="listbox"
-              aria-label="Symbol category"
-            ></div>
-          </details>
-          <div class="symbol-library-toolbar">
-            <output id="symbol-results" aria-live="polite"></output>
-            <div class="symbol-view-toggle" aria-label="Symbol view">
-              <button type="button" data-symbol-view="grid" aria-label="Grid view">▦</button>
-              <button type="button" data-symbol-view="list" aria-label="List view">☷</button>
-            </div>
-            <label>
-              <span class="visually-hidden">Sort symbols</span>
-              <select id="symbol-sort" aria-label="Sort symbols">
-                <option value="default">Default</option>
-                <option value="name-asc">Name A–Z</option>
-                <option value="name-desc">Name Z–A</option>
-              </select>
-            </label>
-          </div>
         </div>
-        <div id="symbol-palette" class="symbol-palette"></div>
+        <div class="symbol-library-layout">
+          <nav class="symbol-category-navigation" aria-label="Symbol categories">
+            <p>Categories</p>
+            <details id="symbol-category-menu" class="symbol-category-menu" open>
+              <summary>
+                <span class="symbol-category-summary-label">
+                  <span
+                    id="symbol-category-summary-icon"
+                    class="symbol-category-icon"
+                    aria-hidden="true"
+                    >⌕</span
+                  >
+                  <span id="symbol-category-label">All categories</span>
+                </span>
+                <span aria-hidden="true">⌄</span>
+              </summary>
+              <div
+                id="symbol-category-options"
+                class="symbol-category-options"
+                role="listbox"
+                aria-label="Symbol category"
+              ></div>
+            </details>
+          </nav>
+          <section class="symbol-library-browser" aria-label="Symbol results">
+            <div class="symbol-library-toolbar">
+              <output id="symbol-results" aria-live="polite"></output>
+              <label>
+                <span class="visually-hidden">Sort symbols</span>
+                <select id="symbol-sort" aria-label="Sort symbols">
+                  <option value="default">Default</option>
+                  <option value="name-asc">Name A–Z</option>
+                  <option value="name-desc">Name Z–A</option>
+                </select>
+              </label>
+              <div class="symbol-view-toggle" aria-label="Symbol view">
+                <button type="button" data-symbol-view="grid" aria-label="Grid view">▦</button>
+                <button type="button" data-symbol-view="list" aria-label="List view">☷</button>
+              </div>
+            </div>
+            <div id="symbol-palette" class="symbol-palette"></div>
+          </section>
+        </div>
       </aside>
 
       <main class="canvas-column">

@@ -71,12 +71,19 @@ export class DesignerOverlay {
         `rotate(${String(displayTransform.rotation)} ${String(centerX)} ${String(centerY)})`
       );
       const rectangle = svg("rect");
-      rectangle.dataset.selectionNodeId = node.id;
+      rectangle.dataset.entityType = "node";
+      rectangle.dataset.entityId = node.id;
+      rectangle.dataset.nodeId = node.id;
       rectangle.setAttribute("x", String(displayTransform.x));
       rectangle.setAttribute("y", String(displayTransform.y));
       rectangle.setAttribute("width", String(displayTransform.width));
       rectangle.setAttribute("height", String(displayTransform.height));
-      rectangle.setAttribute("class", "selection-outline");
+      rectangle.setAttribute(
+        "class",
+        state.activeTool === "select"
+          ? "selection-outline selection-outline-interactive"
+          : "selection-outline"
+      );
       selection.append(rectangle);
       if (state.selection.selectedNodeIds.length === 1) {
         for (const handle of HANDLES) {
