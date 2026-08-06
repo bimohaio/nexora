@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- legacy registry compatibility coverage */
 import type { PropertyBinding, ScadaDocument } from "@web-scada/core";
 import { describe, expect, it, vi } from "vitest";
 import { createExampleSymbolRegistry } from "@web-scada/symbols";
@@ -232,3 +233,4 @@ describe("resolved runtime snapshot scheduling", () => {
     await engine.dispose();
   });
 });
+/* Legacy registry is intentional compatibility coverage. */

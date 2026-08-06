@@ -355,6 +355,37 @@ function validateConnections(value: unknown, issues: ValidationIssue[]): void {
           `${path}/waypoints`
         )
       );
+    const flow = connection.flowAnimation;
+    if (flow !== undefined) {
+      const validId = isRecord(flow) && typeof flow.id === "string" && flow.id.trim() !== "";
+      const validMode = isRecord(flow) && typeof flow.mode === "string" && flow.mode.trim() !== "";
+      const validPrimitive = isRecord(flow) && typeof flow.primitive === "string";
+      const finiteFields = [
+        "speed",
+        "opacity",
+        "intensity",
+        "dashLength",
+        "gapLength",
+        "lineWidth",
+        "markerCount",
+        "markerSpacing",
+        "markerSize"
+      ] as const;
+      const validNumbers =
+        isRecord(flow) &&
+        finiteFields.every(
+          (key) =>
+            flow[key] === undefined || (typeof flow[key] === "number" && Number.isFinite(flow[key]))
+        );
+      if (!validId || !validMode || !validPrimitive || !validNumbers)
+        issues.push(
+          issue(
+            "DOCUMENT_SCHEMA_INVALID",
+            "Connection flow animation metadata is invalid.",
+            `${path}/flowAnimation`
+          )
+        );
+    }
   });
 }
 

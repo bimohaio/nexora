@@ -7,6 +7,10 @@ import type {
   SymbolState,
   SymbolVariantDefinition
 } from "./symbol.js";
+import {
+  createBuiltInSymbolAnimationMetadata,
+  type BuiltInSymbolAnimationProfile
+} from "./animation-metadata.js";
 
 export interface CompositeCatalogEntry {
   readonly name: string;
@@ -787,6 +791,13 @@ function definition(entry: CompositeCatalogEntry): SymbolDefinition {
   const runtimeCapabilities = [...stateCapabilities, ...familyRuntimeCapabilities(entry.family)];
   const ports = familyPorts(entry.family);
   const specializedProperties = familyProperties(entry.family);
+  const animationProfiles: BuiltInSymbolAnimationProfile[] = [];
+  if (["pump", "motor", "hvac", "automation"].includes(entry.family))
+    animationProfiles.push("motion");
+  if (["pipe", "conveyor"].includes(entry.family)) animationProfiles.push("flow");
+  if (entry.family === "vessel") animationProfiles.push("level");
+  if (entry.family === "indicator") animationProfiles.push("indicator");
+  if (entry.family === "valve") animationProfiles.push("valve");
   return {
     type: entry.type,
     version: 1,
@@ -817,6 +828,9 @@ function definition(entry: CompositeCatalogEntry): SymbolDefinition {
     ],
     supportedStates: states,
     runtimeCapabilities,
+    ...(animationProfiles.length === 0
+      ? {}
+      : { animation: createBuiltInSymbolAnimationMetadata(animationProfiles) }),
     capabilities: [
       ...COMMON_CAPABILITIES,
       ...(ports.length > 0 ? (["connectable"] as const) : []),

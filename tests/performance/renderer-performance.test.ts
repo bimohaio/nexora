@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- legacy registry compatibility coverage */
 // @vitest-environment happy-dom
 
 import { describe, expect, it } from "vitest";
@@ -94,3 +95,4 @@ describe("SVG renderer moderate-document performance fixture", () => {
     renderer.dispose();
   });
 });
+/* Legacy registry is intentional compatibility coverage. */

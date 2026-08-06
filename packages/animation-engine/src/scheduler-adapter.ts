@@ -1,6 +1,7 @@
 import type { AnimationPriority } from "./contracts.js";
 import type { PrimitiveAnimationInstance } from "./primitive-contracts.js";
 import type {
+  AnimationTaskMotionBehavior,
   AnimationInvalidation,
   AnimationScheduler,
   AnimationTaskHandle
@@ -9,6 +10,7 @@ import type {
 export interface PrimitiveSchedulerBinding<T> {
   readonly instance: PrimitiveAnimationInstance<T>;
   readonly priority?: AnimationPriority;
+  readonly motionBehavior?: AnimationTaskMotionBehavior;
   readonly invalidation?: Readonly<AnimationInvalidation>;
   readonly onResult?: (value: T | undefined) => void;
 }
@@ -30,6 +32,7 @@ export class PrimitiveSchedulerAdapter<T> {
     binding.instance.play();
     this.#handle = this.scheduler.register({
       ...(binding.priority === undefined ? {} : { priority: binding.priority }),
+      ...(binding.motionBehavior === undefined ? {} : { motionBehavior: binding.motionBehavior }),
       update: (frame) => {
         const result = binding.instance.update(frame.timestamp);
         try {

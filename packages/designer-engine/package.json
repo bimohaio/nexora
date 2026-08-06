@@ -23,6 +23,7 @@
     "@web-scada/core": "workspace:*",
     "@web-scada/geometry": "workspace:*",
     "@web-scada/interaction-engine": "workspace:*",
+    "@web-scada/runtime-engine": "workspace:*",
     "@web-scada/symbols": "workspace:*"
   }
 }

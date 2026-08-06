@@ -6,6 +6,7 @@ import {
   createIndustrialSymbolRegistry,
   createStandardSymbolCategoryRegistry,
   registerSymbolPack,
+  createBuiltInSymbolAnimationMetadata,
   standardInstrumentationPack,
   type SymbolDefinition
 } from "./index.js";
@@ -125,6 +126,59 @@ describe("InMemorySymbolRegistry", () => {
       }
       expect(JSON.stringify(symbol)).not.toMatch(/SVG|HTMLElement|Document/);
     }
+    for (const type of [
+      "process.centrifugal-pump",
+      "process.gate-valve",
+      "process.vertical-tank",
+      "process.pipe",
+      "electrical.ac-motor",
+      "safety.alarm-beacon"
+    ]) {
+      const animation = registry.require(type).animation;
+      expect(animation?.slots.length).toBeGreaterThan(0);
+      expect(
+        animation?.slots.every(({ target }) => animation.targets.some(({ id }) => id === target))
+      ).toBe(true);
+      expect(JSON.stringify(animation)).not.toMatch(/selector|HTMLElement|requestAnimationFrame/);
+    }
+  });
+
+  it("validates animation target, slot and parameter metadata", () => {
+    const registry = new InMemorySymbolRegistry();
+    expect(() =>
+      { registry.register({
+        ...definition,
+        type: "example.animated",
+        animation: {
+          capabilities: ["motion"],
+          targets: [{ id: "root", part: "root", property: "rotation", valueType: "number" }],
+          slots: [
+            {
+              id: "spin",
+              primitive: "rotation",
+              target: "missing",
+              channel: "rotation",
+              defaults: { from: 0, to: 360, durationMs: 1000 }
+            }
+          ],
+          parameters: []
+        }
+      }); }
+    ).toThrow("Invalid animation slot");
+  });
+
+  it("accepts renderer-neutral animation metadata contributed by a plugin", () => {
+    const registry = new InMemorySymbolRegistry();
+    const pluginSymbol: SymbolDefinition = {
+      ...definition,
+      type: "plugin.vendor-fan",
+      animation: createBuiltInSymbolAnimationMetadata(["motion"])
+    };
+    registry.register(pluginSymbol);
+    expect(registry.require(pluginSymbol.type).animation?.slots[0]?.primitive).toBe("rotation");
+    expect(JSON.stringify(registry.require(pluginSymbol.type).animation)).not.toMatch(
+      /DOM|selector/
+    );
   });
 
   it("supports immutable search, validation, categories, and optional packs", () => {

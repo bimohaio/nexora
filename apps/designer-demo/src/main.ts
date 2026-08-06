@@ -211,7 +211,8 @@ publishRuntimeButton.addEventListener("click", () => {
     publishing = true;
     updatePublishAvailability();
     status.value = "Publishing validated document to Runtime…";
-    window.opener.postMessage(
+    const runtimeWindow = window.opener as Window;
+    runtimeWindow.postMessage(
       {
         type: "nexora:publish-document",
         sessionId: designerBootstrap.sessionId,

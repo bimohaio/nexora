@@ -141,7 +141,9 @@ function nodeEqual(left: ResolvedNodeVisualState, right: ResolvedNodeVisualState
     left.state === right.state &&
     left.visible === right.visible &&
     left.quality === right.quality &&
-    jsonEqual(left.properties, right.properties)
+    jsonEqual(left.properties, right.properties) &&
+    left.alarmState === right.alarmState &&
+    left.alarmPresentation === right.alarmPresentation
   ))
     return false;
   const leftSymbol = "effectiveState" in left ? (left as ResolvedSymbolVisualState) : undefined;
@@ -178,7 +180,9 @@ function connectionEqual(
   return (
     left.visible === right.visible &&
     left.quality === right.quality &&
-    jsonEqual(left.style, right.style)
+    jsonEqual(left.style, right.style) &&
+    left.alarmState === right.alarmState &&
+    left.alarmPresentation === right.alarmPresentation
   );
 }
 
@@ -203,6 +207,8 @@ function changedNodeKeys(
   if (previous.state !== current.state) keys.push("state");
   if (previous.visible !== current.visible) keys.push("visible");
   if (previous.quality !== current.quality) keys.push("quality");
+  if (previous.alarmState !== current.alarmState) keys.push("alarmState");
+  if (previous.alarmPresentation !== current.alarmPresentation) keys.push("alarmPresentation");
   const previousSymbol =
     "effectiveState" in previous ? (previous as ResolvedSymbolVisualState) : undefined;
   const currentSymbol =
@@ -221,6 +227,8 @@ function changedConnectionKeys(
   const keys = [...changedKeys(previous.style, current.style)];
   if (previous.visible !== current.visible) keys.push("visible");
   if (previous.quality !== current.quality) keys.push("quality");
+  if (previous.alarmState !== current.alarmState) keys.push("alarmState");
+  if (previous.alarmPresentation !== current.alarmPresentation) keys.push("alarmPresentation");
   return Object.freeze(keys);
 }
 

@@ -26,6 +26,8 @@ properties.
 - centralized, sanitized diagnostic aggregation and injectable logging;
 - health, recovery-policy, latency, cache, dispatch, and memory metrics;
 - keyed update batching, configurable dispatch coalescing, and bounded temporary pooling.
+- immutable alarm lifecycle, deterministic configurable severity resolution, indexed aggregation,
+  incremental alarm diffs, and renderer-neutral alarm snapshot composition.
 
 ```ts
 const runtime = createRuntimeEngine({ document, provider });
@@ -50,9 +52,15 @@ simulator.start();
 simulator.dispose();
 ```
 
-Expression parsing, protocol adapters, alarms, historian behavior, and animation
-remain owned by later phases.
+Alarm runtime APIs are exported from the package root. See
+`docs/runtime/alarm-state-model.md`, `severity-resolution.md`, `alarm-lifecycle.md`, and
+`runtime-alarm-flow.md`. Alarm history, remote acknowledgement authority, UI panels, and dialogs
+remain outside this package.
 
 The complete public API and ownership rules are documented in
 `docs/api/runtime-api.md`. Phase 6 final conformance and readiness evidence is in
 `docs/runtime/runtime-audit-report.md`.
+
+# Connection flow
+
+`RuntimeConnectionFlowManager` owns connection animation lifecycle and consumes an injected shared scheduler. It emits immutable renderer-neutral samples and never mutates the persisted document.

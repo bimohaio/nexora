@@ -97,6 +97,48 @@ export interface ConnectionStyle {
   readonly endMarker?: "none" | "arrow" | "circle" | "diamond";
 }
 
+export type ConnectionFlowMode =
+  | "none"
+  | "dash"
+  | "marker"
+  | "arrow"
+  | "highlight"
+  | "gradient"
+  | "particle-foundation"
+  | (string & {});
+export type ConnectionFlowDirection = "forward" | "reverse";
+export type ConnectionFlowPrimitive =
+  "scalar" | "translation" | "opacity" | "color" | "transform" | "keyframe";
+
+/** Persisted configuration only. Runtime phase, handles and geometry caches never belong here. */
+export interface ConnectionFlowAnimation {
+  readonly id: string;
+  readonly mode: ConnectionFlowMode;
+  readonly primitive: ConnectionFlowPrimitive;
+  readonly enabled?: boolean;
+  readonly speed?: number;
+  readonly direction?: ConnectionFlowDirection;
+  readonly reducedMotion?: "disable" | "static" | "allow";
+  readonly visibility?: "pause" | "continue";
+  readonly color?: string;
+  readonly opacity?: number;
+  readonly intensity?: number;
+  readonly dashLength?: number;
+  readonly gapLength?: number;
+  readonly lineWidth?: number;
+  readonly markerCount?: number;
+  readonly markerSpacing?: number;
+  readonly markerSize?: number;
+  readonly orientMarkers?: boolean;
+  readonly enabledBindingId?: string;
+  readonly speedBindingId?: string;
+  readonly directionBindingId?: string;
+  readonly qualityBindingId?: string;
+  readonly alarmBindingId?: string;
+  readonly flowPercentageBindingId?: string;
+  readonly groupId?: string;
+}
+
 export interface ScadaConnection {
   readonly id: string;
   readonly name: string;
@@ -107,6 +149,7 @@ export interface ScadaConnection {
   readonly medium: Medium;
   readonly direction: ConnectionDirection;
   readonly style: ConnectionStyle;
+  readonly flowAnimation?: ConnectionFlowAnimation;
   readonly layerId: string;
   readonly visible: boolean;
   readonly locked: boolean;

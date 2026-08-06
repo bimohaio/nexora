@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/only-throw-error -- test transport models synchronous promise settlement and arbitrary failures */
 import { DataSourceError } from "@web-scada/datasource-core";
 import type { ModbusTransport, ModbusTransportFactory } from "./contracts.js";
 

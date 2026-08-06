@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-spread, @typescript-eslint/no-non-null-assertion, @typescript-eslint/no-unused-expressions -- preserve byte-oriented Modbus codec semantics */
 import { DataSourceError } from "@web-scada/datasource-core";
 import type { ModbusPointDefinition } from "./contracts.js";
 

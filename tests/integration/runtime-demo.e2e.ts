@@ -6,7 +6,7 @@ test("runtime engine streams targeted visual state and supports viewer controls"
   await page.goto("/");
   const svg = page.locator("[data-scada-root]");
   await expect(svg).toBeVisible();
-  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(18);
+  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(24);
   await expect(page.locator('[data-entity-type="connection"][data-hit-area="true"]')).toHaveCount(
     8
   );
@@ -45,15 +45,15 @@ test("runtime foundation exposes revision, pause, reset, and resume", async ({ p
   await expect(tagStatus).toContainText("18 / 18 tags");
   await expect(tagStatus).toContainText(/revision [1-9]/);
 
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Resume", exact: true })).toBeVisible();
+  await page.locator("#pause-toggle").click();
+  await expect(page.locator("#pause-toggle")).toHaveText("Resume");
   const pausedStatus = await tagStatus.textContent();
   await page.waitForTimeout(900);
   await expect(tagStatus).toHaveText(pausedStatus ?? "");
 
   await page.getByRole("button", { name: "Reset runtime" }).click();
   await expect(tagStatus).toContainText("0 / 18 tags");
-  await page.getByRole("button", { name: "Resume", exact: true }).click();
+  await page.locator("#pause-toggle").click();
   await expect(tagStatus).toContainText("18 / 18 tags");
 });
 
@@ -101,7 +101,7 @@ test("phase 9 showcase exposes manager diagnostics, bounded values, and quality 
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
   await page.goto("/");
-  await expect(page.getByText("Validated · revision 1 · schema 1.0.0 · 18 nodes")).toBeVisible();
+  await expect(page.getByText("Validated · revision 1 · schema 1.0.0 · 24 nodes")).toBeVisible();
   await expect(page.locator("#datasource-diagnostics")).toContainText("browser-simulator");
   await expect(page.locator("#datasource-diagnostics")).toContainText("connected");
   await expect(page.locator("#datasource-diagnostics")).toContainText("1");
@@ -128,7 +128,7 @@ test("Designer edits and publishes a new document revision back to Runtime", asy
   await expect(page.locator("#runtime-status")).not.toHaveText("RUNNING");
   await expect(page.locator("#mode-status")).toContainText("Stopped for editing");
   const designerNodes = designer.locator('[data-scada-root] [data-entity-type="node"]');
-  await expect(designerNodes).toHaveCount(18);
+  await expect(designerNodes).toHaveCount(24);
   await expect(designer.locator("#symbol-total")).toHaveText("428");
   await expect(designer.locator('[data-node-id="node_feed_pump"]').first()).toHaveAttribute(
     "data-symbol-type",
@@ -141,7 +141,7 @@ test("Designer edits and publishes a new document revision back to Runtime", asy
   await search.fill("gear pump");
   const gearPump = designer.locator('[data-palette-symbol="pump.gear-pump"]');
   await gearPump.first().locator(".symbol-insert").click();
-  await expect(designerNodes).toHaveCount(19);
+  await expect(designerNodes).toHaveCount(25);
   await expect(designer.locator("#binding-panel")).toBeVisible();
   await designer.locator('#binding-form input[name="source"]').fill("plant.pump.gear.state");
   await designer.getByRole("button", { name: "Create binding" }).click();
@@ -153,10 +153,71 @@ test("Designer edits and publishes a new document revision back to Runtime", asy
   await designer.getByRole("button", { name: "Publish to Runtime" }).click();
   await reloaded;
   await expect(page.locator("#document-status")).toContainText("revision 2");
-  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(19);
+  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(25);
   await expect(page.locator('[data-symbol-type="pump.gear-pump"]')).toBeVisible();
   await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
   await designer.close();
+});
+
+test("Phase 10.03 showcase exposes production animation controls and representative symbols", async ({
+  page
+}) => {
+  await page.goto("/");
+  await expect(page.locator("#animation-status")).toContainText("PLAYING");
+  await expect(page.locator("#animation-status")).toContainText(/\d+ symbols · \d+ slots/);
+  for (const id of [
+    "node_animation_fan",
+    "node_animation_valve",
+    "node_animation_tank",
+    "node_animation_lamp",
+    "node_animation_encoder",
+    "node_animation_pipe"
+  ])
+    await expect(page.locator(`[data-node-id="${id}"]`).first()).toBeVisible();
+
+  await page.locator("#animation-speed").selectOption("2");
+  await expect(page.locator("#animation-status")).toContainText("2×");
+  await page.getByRole("button", { name: "Pause", exact: true }).last().click();
+  await expect(page.locator("#animation-status")).toContainText("PAUSED");
+  await page.getByRole("button", { name: "Resume", exact: true }).last().click();
+  await expect(page.locator("#animation-status")).toContainText("PLAYING");
+  await page.getByRole("button", { name: "Reduced motion" }).click();
+  await expect(page.getByRole("button", { name: "Reduced motion" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await page.getByRole("button", { name: "Stop", exact: true }).last().click();
+  await expect(page.locator("#animation-status")).toContainText("STOPPED");
+  await expect(page.locator("#animation-status")).toContainText("0 slots");
+  await page.getByRole("button", { name: "Restart", exact: true }).click();
+  await expect(page.locator("#animation-status")).toContainText("PLAYING");
+});
+
+test("Phase 10.06 showcase projects alarm states, themes, and reduced motion", async ({ page }) => {
+  await page.goto("/");
+  const output = page.locator("#alarm-demo-output");
+  await expect(output).toContainText("Active · high");
+  await expect(output).toContainText("badge:triangle");
+
+  await page.locator("#alarm-demo-state").selectOption("Emergency");
+  await expect(output).toContainText("emergency");
+  await expect(output).toContainText("icon:emergency");
+
+  await page.getByRole("button", { name: "Disable alarm motion" }).click();
+  await expect(page.getByRole("button", { name: "Disable alarm motion" })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await expect(output).toContainText("motion:static");
+
+  await page.locator("#alarm-demo-theme").selectOption("contrast");
+  await page.locator("#alarm-demo-state").selectOption("High");
+  await expect(output).toContainText("fill:theme.contrast.alarm.fill");
+
+  for (const state of ["Normal", "Acknowledged", "Shelved", "Offline", "Disabled"]) {
+    await page.locator("#alarm-demo-state").selectOption(state);
+    await expect(output).toContainText(state);
+  }
 });
 
 test("external datasource choices degrade to configuration guidance", async ({ page }) => {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type -- inferred closure preserves the polling handle contract */
 import type { ModbusDataArea, ModbusPointDefinition, ModbusProtocolLimits } from "./contracts.js";
 import { registerSpan } from "./codec.js";
 

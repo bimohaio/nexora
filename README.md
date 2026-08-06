@@ -1,5 +1,10 @@
 # Nexora Web SCADA
 
+Phase 10.03 connects renderer-neutral symbol animation metadata to the production runtime,
+shared scheduler, binding pipeline, incremental SVG adapter and Designer preview. See the
+[symbol animation guide](docs/animation/symbol-integration.md) and
+[Phase 10.03 audit](docs/roadmap/phase-10-03-symbol-animation-integration-audit.md).
+
 Phase 9 datasource integration validation and production-readiness evidence is summarized in the
 [Phase 9.08 final audit](docs/datasource/phase-9-08-final-audit.md).
 
@@ -62,6 +67,8 @@ Core and Geometry contain no browser globals.
 - Deterministic transformations, exact-value mapping, formatting, thresholds, dependency tracking,
   incremental evaluation, bounded LRU caches, scheduling, and per-binding failure isolation
 - Renderer-neutral resolved visual snapshots, revisioned diffs, and runtime/renderer integration
+- Shared-scheduler symbol animations with transient priority composition, reduced-motion and
+  visibility policies, cached SVG targets, lifecycle cleanup and production-path Designer preview
 
 ### Data sources
 

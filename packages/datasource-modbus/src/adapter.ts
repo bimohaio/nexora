@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/require-await, @typescript-eslint/prefer-optional-chain, @typescript-eslint/no-non-null-assertion -- preserve protocol adapter timing and validated-index behavior */
 import {
   DataSourceError,
   SystemDataSourceScheduler,

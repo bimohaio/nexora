@@ -17,3 +17,5 @@ export * from "./transformed-evaluators.js";
 export * from "./thresholds.js";
 export * from "./validation.js";
 export * from "./visual-properties.js";
+export * from "./symbol-animation-bindings.js";
+export * from "./connection-flow-bindings.js";

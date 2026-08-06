@@ -30,4 +30,6 @@ The default SVG visual registry includes the compatible Phase 1 visuals and all
 visual lookup. Visual adapters may implement `dispose(element)` for deterministic
 resource cleanup.
 
+Connection flow samples are applied by `SvgConnectionFlowAdapter` through a cached, non-interactive overlay and bounded marker pool. Timing remains outside this package; see `docs/architecture/connection-flow-rendering.md`.
+
 Limitations: basic orthogonal routes have no obstacle avoidance; export is prepared but not public; text measurement/wrapping, keyboard entity navigation, designer selection/editing, binding evaluation, and very-large-scene virtualization are deferred.

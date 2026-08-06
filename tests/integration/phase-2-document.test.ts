@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- legacy registry compatibility coverage */
 import { describe, expect, it } from "vitest";
 import { validateDocumentSemantics } from "@web-scada/core";
 import { createExampleSymbolRegistry } from "@web-scada/symbols";
@@ -12,3 +13,4 @@ describe("Phase 2 runtime sample", () => {
     expect(result.valid).toBe(true);
   });
 });
+/* Legacy registry is intentional compatibility coverage. */

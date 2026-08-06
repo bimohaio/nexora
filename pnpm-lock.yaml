@@ -72,6 +72,9 @@ importers:
 
   apps/runtime-demo:
     dependencies:
+      '@web-scada/animation-engine':
+        specifier: workspace:*
+        version: link:../../packages/animation-engine
       '@web-scada/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -223,6 +226,9 @@ importers:
       '@web-scada/interaction-engine':
         specifier: workspace:*
         version: link:../interaction-engine
+      '@web-scada/runtime-engine':
+        specifier: workspace:*
+        version: link:../runtime-engine
       '@web-scada/symbols':
         specifier: workspace:*
         version: link:../symbols
@@ -258,6 +264,9 @@ importers:
 
   packages/runtime-engine:
     dependencies:
+      '@web-scada/animation-engine':
+        specifier: workspace:*
+        version: link:../animation-engine
       '@web-scada/core':
         specifier: workspace:*
         version: link:../core

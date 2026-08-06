@@ -26,4 +26,21 @@ describe("runtime demo symbol document", () => {
       "node_level_readout"
     ]);
   });
+
+  it("contains a visible representative animation showcase backed by symbol metadata", () => {
+    const { symbolRegistry } = createIndustrialSymbolEnvironment();
+    const showcaseNodes = WATER_TREATMENT_DOCUMENT.nodes.filter(({ id }) =>
+      id.startsWith("node_animation_")
+    );
+    expect(showcaseNodes.map(({ id }) => id)).toEqual([
+      "node_animation_fan",
+      "node_animation_valve",
+      "node_animation_tank",
+      "node_animation_lamp",
+      "node_animation_encoder",
+      "node_animation_pipe"
+    ]);
+    for (const node of showcaseNodes)
+      expect(symbolRegistry.require(node.symbolType).animation?.slots.length).toBeGreaterThan(0);
+  });
 });

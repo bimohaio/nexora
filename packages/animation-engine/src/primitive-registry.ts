@@ -85,7 +85,7 @@ export class AnimationPrimitiveRegistry {
     }
     this.#registrations.set(id, {
       metadata,
-      factory: registration.factory as () => AnimationPrimitive<unknown>
+      factory: registration.factory
     });
     for (const alias of aliases) this.#aliases.set(alias, id);
   }

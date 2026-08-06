@@ -149,6 +149,63 @@ export interface BindablePropertyMetadata {
   readonly dataTypes: readonly ("boolean" | "number" | "string")[];
 }
 
+export type SymbolAnimationPrimitive =
+  | "scalar"
+  | "boolean"
+  | "integer"
+  | "opacity"
+  | "color"
+  | "rotation"
+  | "translation"
+  | "scale"
+  | "transform"
+  | "keyframe";
+
+export type SymbolAnimationValueType =
+  "number" | "boolean" | "integer" | "color" | "vector2" | "transform" | "json";
+
+export interface SymbolAnimationTargetDefinition {
+  readonly id: string;
+  readonly part: string;
+  readonly property: string;
+  readonly valueType: SymbolAnimationValueType;
+}
+
+export interface SymbolAnimationParameterDefinition {
+  readonly key: string;
+  readonly valueType: "boolean" | "number" | "string" | "color";
+  readonly required?: boolean;
+  readonly defaultValue?: JsonValue;
+  readonly minimum?: number;
+  readonly maximum?: number;
+}
+
+export interface SymbolAnimationSlotDefinition {
+  readonly id: string;
+  readonly primitive: SymbolAnimationPrimitive;
+  readonly target: string;
+  readonly channel: string;
+  readonly defaults: {
+    readonly enabled?: boolean;
+    readonly from: JsonValue;
+    readonly to: JsonValue;
+    readonly durationMs: number;
+    readonly iterations?: number | "infinite";
+    readonly direction?: "normal" | "reverse" | "alternate" | "alternate-reverse";
+  };
+  readonly priority?: number;
+  readonly reducedMotion?: "disable" | "static-final-state" | "allow" | "reduce";
+  readonly visibility?: "always-run" | "pause-offscreen" | "pause-when-document-hidden";
+}
+
+/** Renderer-neutral declarations only. Playback state and renderer references are never stored. */
+export interface SymbolAnimationMetadata {
+  readonly capabilities: readonly string[];
+  readonly targets: readonly SymbolAnimationTargetDefinition[];
+  readonly slots: readonly SymbolAnimationSlotDefinition[];
+  readonly parameters: readonly SymbolAnimationParameterDefinition[];
+}
+
 export interface SymbolDefinition {
   readonly type: string;
   readonly version?: number;
@@ -176,6 +233,7 @@ export interface SymbolDefinition {
     readonly alarmVisualTargets?: readonly string[];
     readonly parts?: readonly string[];
   };
+  readonly animation?: SymbolAnimationMetadata;
   readonly capabilities?: readonly SymbolCapability[];
   readonly tags?: readonly string[];
   readonly presets?: readonly SymbolPreset[];
@@ -343,6 +401,42 @@ function validateDefinition(definition: SymbolDefinition): void {
   ])
     if (target.trim() === "" || ["__proto__", "prototype", "constructor"].includes(target))
       throw new Error(`Invalid Phase 10 symbol target: ${definition.type}`);
+  const animationTargetIds = new Set<string>();
+  for (const target of definition.animation?.targets ?? []) {
+    if (
+      !/^[a-z][a-z0-9-]*$/.test(target.id) ||
+      animationTargetIds.has(target.id) ||
+      target.part.trim() === "" ||
+      target.property.trim() === ""
+    )
+      throw new Error(`Invalid animation target: ${definition.type}:${target.id}`);
+    animationTargetIds.add(target.id);
+  }
+  const animationSlotIds = new Set<string>();
+  for (const slot of definition.animation?.slots ?? []) {
+    if (
+      !/^[a-z][a-z0-9-]*$/.test(slot.id) ||
+      animationSlotIds.has(slot.id) ||
+      !animationTargetIds.has(slot.target) ||
+      slot.channel.trim() === "" ||
+      !Number.isFinite(slot.defaults.durationMs) ||
+      slot.defaults.durationMs < 0
+    )
+      throw new Error(`Invalid animation slot: ${definition.type}:${slot.id}`);
+    animationSlotIds.add(slot.id);
+  }
+  const animationParameterKeys = new Set<string>();
+  for (const parameter of definition.animation?.parameters ?? []) {
+    if (
+      !/^[a-z][a-zA-Z0-9]*$/.test(parameter.key) ||
+      animationParameterKeys.has(parameter.key) ||
+      (parameter.minimum !== undefined &&
+        parameter.maximum !== undefined &&
+        parameter.minimum > parameter.maximum)
+    )
+      throw new Error(`Invalid animation parameter: ${definition.type}:${parameter.key}`);
+    animationParameterKeys.add(parameter.key);
+  }
   if (
     definition.deprecation?.deprecated === true &&
     definition.deprecation.replacedBy === definition.type
@@ -531,6 +625,12 @@ function freezeDefinition(definition: SymbolDefinition): SymbolDefinition {
   for (const property of definition.bindableProperties) Object.freeze(property);
   for (const variant of definition.variants ?? []) Object.freeze(variant);
   for (const anchor of definition.anchors ?? []) Object.freeze(anchor);
+  for (const target of definition.animation?.targets ?? []) Object.freeze(target);
+  for (const slot of definition.animation?.slots ?? []) {
+    Object.freeze(slot.defaults);
+    Object.freeze(slot);
+  }
+  for (const parameter of definition.animation?.parameters ?? []) Object.freeze(parameter);
   Object.freeze(definition.ports);
   Object.freeze(definition.editableProperties);
   Object.freeze(definition.bindableProperties);
@@ -541,6 +641,13 @@ function freezeDefinition(definition: SymbolDefinition): SymbolDefinition {
   if (definition.anchors !== undefined) Object.freeze(definition.anchors);
   if (definition.tags !== undefined) Object.freeze(definition.tags);
   if (definition.aliases !== undefined) Object.freeze(definition.aliases);
+  if (definition.animation !== undefined) {
+    Object.freeze(definition.animation.capabilities);
+    Object.freeze(definition.animation.targets);
+    Object.freeze(definition.animation.slots);
+    Object.freeze(definition.animation.parameters);
+    Object.freeze(definition.animation);
+  }
   return Object.freeze(definition);
 }
 

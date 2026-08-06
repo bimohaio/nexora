@@ -386,6 +386,78 @@ export const WATER_TREATMENT_DOCUMENT: ScadaDocument = {
       },
       ["binding_level_text"],
       INSTRUMENTS
+    ),
+    node(
+      "node_animation_fan",
+      "FN-401 Supply Fan",
+      INDUSTRIAL_SYMBOL_TYPES.supplyFan,
+      900,
+      660,
+      110,
+      100,
+      {},
+      [],
+      CONTROL
+    ),
+    node(
+      "node_animation_valve",
+      "AV-401 Control Valve",
+      INDUSTRIAL_SYMBOL_TYPES.globeValve,
+      590,
+      680,
+      90,
+      72,
+      {},
+      [],
+      CONTROL
+    ),
+    node(
+      "node_animation_tank",
+      "TK-401 Level Preview",
+      INDUSTRIAL_SYMBOL_TYPES.verticalTank,
+      735,
+      635,
+      100,
+      145,
+      { fill: "#155e75", level: 0.45 },
+      [],
+      PROCESS
+    ),
+    node(
+      "node_animation_lamp",
+      "LI-401 Running Lamp",
+      INDUSTRIAL_SYMBOL_TYPES.lamp,
+      1070,
+      670,
+      80,
+      80,
+      {},
+      [],
+      CONTROL
+    ),
+    node(
+      "node_animation_encoder",
+      "EN-401 Encoder",
+      INDUSTRIAL_SYMBOL_TYPES.encoder,
+      1210,
+      665,
+      90,
+      90,
+      {},
+      [],
+      CONTROL
+    ),
+    node(
+      "node_animation_pipe",
+      "FL-401 Animated Flow",
+      INDUSTRIAL_SYMBOL_TYPES.pipe,
+      1370,
+      685,
+      230,
+      50,
+      { stroke: "#22d3ee" },
+      [],
+      PROCESS
     )
   ],
   connections: [

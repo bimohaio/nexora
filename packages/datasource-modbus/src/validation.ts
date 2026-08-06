@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unnecessary-condition -- runtime validation remains defensive for untyped external configuration */
 import { DataSourceError } from "@web-scada/datasource-core";
 import type { ModbusAdapterConfig, ModbusPointDefinition } from "./contracts.js";
 import { checked } from "./addressing.js";

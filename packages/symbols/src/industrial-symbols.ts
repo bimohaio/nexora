@@ -6,6 +6,10 @@ import type {
   SymbolRuntimeCapability,
   SymbolState
 } from "./symbol.js";
+import {
+  createBuiltInSymbolAnimationMetadata,
+  type BuiltInSymbolAnimationProfile
+} from "./animation-metadata.js";
 import { defineSymbolPack, type SymbolPack } from "./architecture.js";
 
 const ALL_OPERATIONAL_STATES: readonly SymbolState[] = [
@@ -128,6 +132,12 @@ interface IndustrialSymbolOptions {
 function industrialSymbol(options: IndustrialSymbolOptions): SymbolDefinition {
   const name = options.type.slice(options.type.indexOf(".") + 1);
   const states = options.states ?? ALL_OPERATIONAL_STATES;
+  const profiles: BuiltInSymbolAnimationProfile[] = [];
+  if (/(motor|pump|fan|mixer|encoder)/.test(name)) profiles.push("motion");
+  if (/(pipe|conveyor)/.test(name)) profiles.push("flow");
+  if (/(tank|vessel)/.test(name)) profiles.push("level");
+  if (/(lamp|beacon|indicator)/.test(name)) profiles.push("indicator");
+  if (name.includes('valve')) profiles.push("valve");
   return {
     type: options.type,
     version: 1,
@@ -146,6 +156,7 @@ function industrialSymbol(options: IndustrialSymbolOptions): SymbolDefinition {
     ],
     supportedStates: states,
     runtimeCapabilities: options.capabilities ?? ALL_RUNTIME_CAPABILITIES,
+    ...(profiles.length === 0 ? {} : { animation: createBuiltInSymbolAnimationMetadata(profiles) }),
     capabilities: [
       "resizable",
       "rotatable",

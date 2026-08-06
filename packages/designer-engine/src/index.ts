@@ -8,6 +8,8 @@ export * from "./engine.js";
 export * from "./history.js";
 export * from "./keyboard-adapter.js";
 export * from "./phase10-authoring.js";
+export * from "./animation-preview.js";
+export * from "./connection-flow-preview.js";
 export * from "./selection.js";
 export * from "./selection-adapter.js";
 export * from "./session.js";

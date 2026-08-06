@@ -1,6 +1,7 @@
 export * from "./clock.js";
 export * from "./composite.js";
 export * from "./browser-policy-adapters.js";
+export * from "./built-in-primitives.js";
 export * from "./conflict-resolution.js";
 export * from "./contracts.js";
 export * from "./diagnostics.js";

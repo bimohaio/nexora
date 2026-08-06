@@ -17,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@web-scada/animation-engine": "workspace:*",
     "@web-scada/core": "workspace:*",
     "@web-scada/datasource-core": "workspace:*",
     "@web-scada/symbols": "workspace:*"

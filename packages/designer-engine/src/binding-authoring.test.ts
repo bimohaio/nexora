@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- legacy registry compatibility coverage */
 import { describe, expect, it } from "vitest";
 import { DeterministicIdGenerator } from "@web-scada/core";
 import { createExampleSymbolRegistry } from "@web-scada/symbols";
@@ -112,3 +113,4 @@ describe("binding authoring", () => {
     });
   });
 });
+/* Legacy registry is intentional compatibility coverage. */

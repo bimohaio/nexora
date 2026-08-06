@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/explicit-function-return-type, @typescript-eslint/require-await, @typescript-eslint/no-non-null-assertion, @typescript-eslint/prefer-optional-chain -- preserve Node transport callback and validated-buffer behavior */
 import net from "node:net";
 import { DataSourceError } from "@web-scada/datasource-core";
 import type {

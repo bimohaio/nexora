@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- legacy registry compatibility coverage */
 import { describe, expect, it, vi } from "vitest";
 import { createExampleSymbolRegistry } from "@web-scada/symbols";
 import {
@@ -72,3 +73,4 @@ describe("Runtime Engine final integration", () => {
     expect(runtime.subscriptions.size).toBe(0);
   });
 });
+/* Legacy registry is intentional compatibility coverage. */

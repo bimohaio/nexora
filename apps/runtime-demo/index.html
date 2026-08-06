@@ -3,14 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Nexora — Phase 9 System Showcase</title>
+    <title>Nexora — Runtime Animation Showcase</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <main class="shell">
       <header>
         <div>
-          <span class="eyebrow">PHASE 9 · INTEGRATED SYSTEM SHOWCASE</span>
+          <span class="eyebrow">PHASE 10.06 · ALARM PRESENTATION SHOWCASE</span>
           <h1>Water Treatment Control Center</h1>
         </div>
         <div class="controls" aria-label="Application controls">
@@ -32,7 +32,7 @@
               <option value="water">Water treatment process</option>
             </select>
             <output id="document-status" class="status-line" aria-live="polite"
-              >Validated · schema 1.0.0 · 18 nodes</output
+              >Validated · schema 1.0.0 · 24 nodes</output
             >
           </section>
 
@@ -56,6 +56,52 @@
               <button id="quality-toggle" type="button">Bad quality</button>
               <button id="state-toggle" type="button">Toggle alarm</button>
             </div>
+          </section>
+
+          <section>
+            <h2>Symbol animations</h2>
+            <output id="animation-status" class="status-line" aria-live="polite">Ready</output>
+            <label for="animation-speed">Speed override</label>
+            <select id="animation-speed">
+              <option value="0.5">0.5×</option>
+              <option value="1" selected>1×</option>
+              <option value="2">2×</option>
+              <option value="4">4×</option>
+            </select>
+            <div class="button-grid">
+              <button id="animation-play" type="button">Play</button>
+              <button id="animation-pause" type="button">Pause</button>
+              <button id="animation-restart" type="button">Restart</button>
+              <button id="animation-stop" type="button">Stop</button>
+              <button id="animation-reduced-motion" type="button" aria-pressed="false">
+                Reduced motion
+              </button>
+            </div>
+          </section>
+
+          <section>
+            <h2>Alarm presentation</h2>
+            <label for="alarm-demo-state">Resolved runtime state</label>
+            <select id="alarm-demo-state">
+              <option value="Normal">Normal</option>
+              <option value="Medium">Warning</option>
+              <option value="High" selected>High</option>
+              <option value="Critical">Critical</option>
+              <option value="Emergency">Emergency</option>
+              <option value="Acknowledged">Acknowledged</option>
+              <option value="Shelved">Shelved</option>
+              <option value="Offline">Offline</option>
+              <option value="Disabled">Disabled</option>
+            </select>
+            <label for="alarm-demo-theme">Semantic theme</label>
+            <select id="alarm-demo-theme">
+              <option value="default">Default</option>
+              <option value="contrast">High contrast</option>
+            </select>
+            <button id="alarm-demo-motion" type="button" aria-pressed="false">
+              Disable alarm motion
+            </button>
+            <output id="alarm-demo-output" class="alarm-contract" aria-live="polite"></output>
           </section>
 
           <section>

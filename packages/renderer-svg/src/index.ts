@@ -9,3 +9,5 @@ export * from "./phase10-contracts.js";
 export * from "./renderer.js";
 export * from "./symbol-renderers.js";
 export * from "./symbol-environment.js";
+export * from "./symbol-animation-adapter.js";
+export * from "./connection-flow-adapter.js";

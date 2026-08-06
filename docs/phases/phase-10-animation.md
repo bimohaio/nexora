@@ -1,5 +1,11 @@
 # Phase 10 — Animation
 
+Phase 10.03 is implemented. Symbol registry metadata now flows through runtime controllers,
+Phase 10.02 primitives, the Phase 10.01 shared scheduler, transient composition and incremental SVG
+rendering. Designer preview uses the same runtime path. See the
+[symbol integration guide](../animation/symbol-integration.md) and
+[Phase 10.03 audit](../roadmap/phase-10-03-symbol-animation-integration-audit.md).
+
 ## Goal
 
 Provide deterministic visual animation driven by resolved runtime state.

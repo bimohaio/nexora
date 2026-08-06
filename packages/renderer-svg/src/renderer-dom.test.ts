@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- legacy registry compatibility coverage */
 // @vitest-environment happy-dom
 
 import { describe, expect, it, vi } from "vitest";
@@ -352,3 +353,4 @@ describe("NativeSvgRenderer lifecycle and rendering", () => {
     callback.mockRestore();
   });
 });
+/* Legacy registry is intentional compatibility coverage. */

@@ -8,8 +8,11 @@ import {
   type RendererEvent
 } from "@web-scada/renderer-svg";
 import {
+  AlarmVisualPresentationStore,
+  RuntimeAlarmEngine,
   createRuntimeEngine,
   createRuntimeRenderPipeline,
+  type AlarmInput,
   type RuntimeEngineEvent
 } from "@web-scada/runtime-engine";
 import {
@@ -21,6 +24,7 @@ import {
 } from "./designer-handoff.js";
 import { WATER_TREATMENT_DOCUMENT } from "./sample-document.js";
 import { ManagedSimulatorProvider } from "./simulated-provider.js";
+import { RuntimeAnimationShowcase } from "./animation-showcase.js";
 
 // The generic maps a known selector to its expected DOM subtype.
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
@@ -45,6 +49,77 @@ const errorRegion = required<HTMLElement>("#error-region");
 const datasourceSelect = required<HTMLSelectElement>("#datasource-select");
 const adapterConfig = required<HTMLElement>("#adapter-config");
 const openDesigner = required<HTMLButtonElement>("#open-designer");
+const animationStatus = required<HTMLOutputElement>("#animation-status");
+const animationSpeed = required<HTMLSelectElement>("#animation-speed");
+const animationPause = required<HTMLButtonElement>("#animation-pause");
+const animationReducedMotion = required<HTMLButtonElement>("#animation-reduced-motion");
+const alarmDemoState = required<HTMLSelectElement>("#alarm-demo-state");
+const alarmDemoTheme = required<HTMLSelectElement>("#alarm-demo-theme");
+const alarmDemoMotion = required<HTMLButtonElement>("#alarm-demo-motion");
+const alarmDemoOutput = required<HTMLOutputElement>("#alarm-demo-output");
+
+const alarmDemoSeverities: Readonly<Record<string, AlarmInput["severity"]>> = Object.freeze({
+  Normal: "none",
+  Medium: "medium",
+  High: "high",
+  Critical: "critical",
+  Emergency: "emergency",
+  Acknowledged: "high",
+  Shelved: "high",
+  Offline: "critical",
+  Disabled: "none"
+});
+function renderAlarmPresentationDemo(): void {
+  const selected = alarmDemoState.value;
+  const status: AlarmInput["status"] =
+    selected === "Medium" ||
+    selected === "High" ||
+    selected === "Critical" ||
+    selected === "Emergency"
+      ? "Active"
+      : (selected as AlarmInput["status"]);
+  const alarmEngine = new RuntimeAlarmEngine({ now: () => 1 });
+  const evaluated = alarmEngine.evaluate({
+    alarmId: "runtime-demo-alarm",
+    symbolId: "node_alarm_beacon",
+    sourceId: "runtime-demo",
+    sourceKind: "simulator",
+    category: status === "Offline" ? "communication" : "process",
+    severity: alarmDemoSeverities[selected] ?? "none",
+    timestamp: 1,
+    status,
+    message: `${selected} presentation`,
+    code: "DEMO_ALARM",
+    origin: "runtime-demo",
+    reason: "manual",
+    acknowledged: status === "Acknowledged"
+  });
+  const presentation = new AlarmVisualPresentationStore({
+    theme:
+      alarmDemoTheme.value === "contrast"
+        ? { id: "contrast", tokens: { "alarm.high.fill": "theme.contrast.alarm.fill" } }
+        : { id: "default" },
+    motionPreference:
+      alarmDemoMotion.getAttribute("aria-pressed") === "true" ? "reduce" : "no-preference"
+  })
+    .apply(evaluated.snapshot, evaluated.diff)
+    .snapshot.symbols.get("node_alarm_beacon");
+  alarmDemoOutput.textContent =
+    presentation === undefined
+      ? "No active presentation"
+      : `${presentation.effectiveStatus} · ${presentation.effectiveSeverity} · badge:${presentation.badge.kind} · overlay:${presentation.overlay.kind} · icon:${presentation.icon.kind} · motion:${presentation.animation.requests.join(",") || "static"} · fill:${presentation.fill.token}`;
+  alarmEngine.dispose();
+}
+alarmDemoState.addEventListener("change", renderAlarmPresentationDemo);
+alarmDemoTheme.addEventListener("change", renderAlarmPresentationDemo);
+alarmDemoMotion.addEventListener("click", () => {
+  alarmDemoMotion.setAttribute(
+    "aria-pressed",
+    String(alarmDemoMotion.getAttribute("aria-pressed") !== "true")
+  );
+  renderAlarmPresentationDemo();
+});
+renderAlarmPresentationDemo();
 
 const symbolEnvironment = createIndustrialSymbolEnvironment();
 const { symbolRegistry: symbols, svgVisualRegistry: symbolVisuals } = symbolEnvironment;
@@ -121,6 +196,40 @@ const designer: DesignerController = createDesignerEngine({
   renderer
 });
 const runtimeRenderPipeline = createRuntimeRenderPipeline({ source: runtime, renderer });
+const animationShowcase = new RuntimeAnimationShowcase({
+  document: documentModel,
+  symbols,
+  renderer,
+  entityIds: new Set(
+    documentModel.nodes.filter(({ id }) => id.startsWith("node_animation_")).map(({ id }) => id)
+  ),
+  onDiagnostic: ({ code, message }) => {
+    animationStatus.value = `${code}: ${message}`;
+  }
+});
+
+function updateAnimationStatus(): void {
+  const snapshot = animationShowcase.getSnapshot();
+  animationStatus.value = `${snapshot.state.toUpperCase()} · ${String(snapshot.animatedSymbolCount)} symbols · ${String(snapshot.activeSlotCount)} slots · ${String(snapshot.speed)}×${snapshot.reducedMotion === "reduce" ? " · reduced motion" : ""}`;
+  animationPause.textContent = snapshot.state === "paused" ? "Resume" : "Pause";
+}
+
+const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+function applyMotionPreference(reduced: boolean): void {
+  animationShowcase.setReducedMotion(reduced ? "reduce" : "no-preference");
+  animationReducedMotion.setAttribute("aria-pressed", String(reduced));
+  updateAnimationStatus();
+}
+const observeMotionPreference = (event: MediaQueryListEvent): void => {
+  applyMotionPreference(event.matches);
+};
+applyMotionPreference(motionPreference.matches);
+motionPreference.addEventListener("change", observeMotionPreference);
+
+function syncDocumentVisibility(): void {
+  animationShowcase.setDocumentVisibility(document.hidden);
+}
+document.addEventListener("visibilitychange", syncDocumentVisibility);
 
 function updateRuntimeStatus(_event?: RuntimeEngineEvent): void {
   const snapshot = runtime.getSnapshot();
@@ -195,6 +304,8 @@ async function startRuntime(): Promise<void> {
   try {
     subscribed = true;
     await runtime.start();
+    animationShowcase.play();
+    updateAnimationStatus();
     required<HTMLButtonElement>("#subscribe-toggle").textContent = "Unsubscribe";
     updateRuntimeStatus();
   } catch (error) {
@@ -206,6 +317,8 @@ async function stopRuntime(): Promise<void> {
   try {
     subscribed = false;
     await runtime.stop();
+    animationShowcase.stop();
+    updateAnimationStatus();
     required<HTMLButtonElement>("#subscribe-toggle").textContent = "Subscribe";
     updateRuntimeStatus();
     const current = serializeDocumentJson(designer.getState().document);
@@ -359,7 +472,9 @@ function receiveDesignerPublish(event: MessageEvent<unknown>): void {
     designerUrl.origin
   );
   modeStatus.value = `Reloading published revision ${String(nextRevision)}`;
-  window.setTimeout(() => window.location.reload(), 0);
+  window.setTimeout(() => {
+    window.location.reload();
+  }, 0);
 }
 window.addEventListener("message", receiveDesignerPublish);
 
@@ -372,6 +487,30 @@ required<HTMLButtonElement>("#runtime-start").addEventListener("click", () => {
 });
 required<HTMLButtonElement>("#runtime-stop").addEventListener("click", () => {
   void stopRuntime();
+});
+required<HTMLButtonElement>("#animation-play").addEventListener("click", () => {
+  animationShowcase.play();
+  updateAnimationStatus();
+});
+animationPause.addEventListener("click", () => {
+  if (animationShowcase.getSnapshot().state === "paused") animationShowcase.resume();
+  else animationShowcase.pause();
+  updateAnimationStatus();
+});
+required<HTMLButtonElement>("#animation-restart").addEventListener("click", () => {
+  animationShowcase.restart();
+  updateAnimationStatus();
+});
+required<HTMLButtonElement>("#animation-stop").addEventListener("click", () => {
+  animationShowcase.stop();
+  updateAnimationStatus();
+});
+animationSpeed.addEventListener("change", () => {
+  animationShowcase.setSpeed(Number(animationSpeed.value));
+  updateAnimationStatus();
+});
+animationReducedMotion.addEventListener("click", () => {
+  applyMotionPreference(animationShowcase.getSnapshot().reducedMotion !== "reduce");
 });
 required<HTMLButtonElement>("#grid-toggle").addEventListener("click", () => {
   showGrid = !showGrid;
@@ -489,10 +628,13 @@ observer.observe(viewer);
 
 async function dispose(): Promise<void> {
   window.removeEventListener("message", receiveDesignerPublish);
+  document.removeEventListener("visibilitychange", syncDocumentVisibility);
+  motionPreference.removeEventListener("change", observeMotionPreference);
   observer.disconnect();
   unobserveProvider();
   unsubscribeRuntime();
   runtimeRenderPipeline.dispose();
+  animationShowcase.dispose();
   designer.dispose();
   await runtime.dispose();
   await provider.dispose();

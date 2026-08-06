@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-deprecated -- legacy registry compatibility coverage */
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -94,3 +95,4 @@ describe("Phase 1 integration flows", () => {
     }
   });
 });
+/* Legacy registry is intentional compatibility coverage. */

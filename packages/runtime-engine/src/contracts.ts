@@ -4,6 +4,8 @@ import type { RuntimeDiagnosticsService, RuntimeHealthStatus } from "./diagnosti
 import type { RuntimeLogger } from "./logging.js";
 import type { RuntimeMetricsSnapshot } from "./metrics.js";
 import type { RuntimeRecoveryPolicies } from "./recovery.js";
+import type { AlarmAggregate, AlarmSnapshot } from "./alarm/types.js";
+import type { AlarmPresentation, AlarmVisualSnapshot } from "./alarm-visual/types.js";
 
 export type RuntimeDataType = "boolean" | "number" | "string" | "json";
 export type DataQuality = "good" | "uncertain" | "bad" | "offline" | "unknown";
@@ -163,6 +165,9 @@ export interface ResolvedNodeVisualState {
   readonly properties: Readonly<Record<string, JsonValue>>;
   readonly visible?: boolean;
   readonly quality: DataQuality;
+  /** Renderer-neutral resolved alarm state; absent when no alarm engine is attached. */
+  readonly alarmState?: AlarmAggregate;
+  readonly alarmPresentation?: AlarmPresentation;
 }
 
 export type RuntimeVisualDirection = "none" | "forward" | "reverse" | "bidirectional";
@@ -240,6 +245,9 @@ export interface ResolvedConnectionVisualState {
   readonly style: Partial<ConnectionStyle>;
   readonly visible?: boolean;
   readonly quality: DataQuality;
+  /** Renderer-neutral resolved alarm state; absent when no alarm engine is attached. */
+  readonly alarmState?: AlarmAggregate;
+  readonly alarmPresentation?: AlarmPresentation;
 }
 
 export interface RuntimeVisualSnapshot extends RuntimeVisualStateReader {
@@ -247,6 +255,8 @@ export interface RuntimeVisualSnapshot extends RuntimeVisualStateReader {
   readonly timestamp: number;
   readonly nodes: ReadonlyMap<string, ResolvedNodeVisualState>;
   readonly connections: ReadonlyMap<string, ResolvedConnectionVisualState>;
+  readonly alarmSnapshot?: AlarmSnapshot;
+  readonly alarmVisualSnapshot?: AlarmVisualSnapshot;
 }
 
 export interface RuntimeVisualSnapshotDiff {
