@@ -8,7 +8,9 @@ import {
   type RendererEvent
 } from "@web-scada/renderer-svg";
 import {
+  AlarmOverlayStore,
   AlarmVisualPresentationStore,
+  RuntimeVisibilityManager,
   RuntimeAlarmEngine,
   createRuntimeEngine,
   createRuntimeRenderPipeline,
@@ -57,6 +59,8 @@ const alarmDemoState = required<HTMLSelectElement>("#alarm-demo-state");
 const alarmDemoTheme = required<HTMLSelectElement>("#alarm-demo-theme");
 const alarmDemoMotion = required<HTMLButtonElement>("#alarm-demo-motion");
 const alarmDemoOutput = required<HTMLOutputElement>("#alarm-demo-output");
+const visibilityDemoPolicy = required<HTMLSelectElement>("#visibility-demo-policy");
+const visibilityDemoState = required<HTMLSelectElement>("#visibility-demo-state");
 
 const alarmDemoSeverities: Readonly<Record<string, AlarmInput["severity"]>> = Object.freeze({
   Normal: "none",
@@ -67,6 +71,9 @@ const alarmDemoSeverities: Readonly<Record<string, AlarmInput["severity"]>> = Ob
   Acknowledged: "high",
   Shelved: "high",
   Offline: "critical",
+  CommunicationFailure: "critical",
+  Maintenance: "low",
+  Suppressed: "high",
   Disabled: "none"
 });
 function renderAlarmPresentationDemo(): void {
@@ -77,14 +84,17 @@ function renderAlarmPresentationDemo(): void {
     selected === "Critical" ||
     selected === "Emergency"
       ? "Active"
-      : (selected as AlarmInput["status"]);
+      : selected === "CommunicationFailure"
+        ? "Active"
+        : (selected as AlarmInput["status"]);
   const alarmEngine = new RuntimeAlarmEngine({ now: () => 1 });
   const evaluated = alarmEngine.evaluate({
     alarmId: "runtime-demo-alarm",
     symbolId: "node_alarm_beacon",
     sourceId: "runtime-demo",
     sourceKind: "simulator",
-    category: status === "Offline" ? "communication" : "process",
+    category:
+      status === "Offline" || selected === "CommunicationFailure" ? "communication" : "process",
     severity: alarmDemoSeverities[selected] ?? "none",
     timestamp: 1,
     status,
@@ -94,24 +104,55 @@ function renderAlarmPresentationDemo(): void {
     reason: "manual",
     acknowledged: status === "Acknowledged"
   });
-  const presentation = new AlarmVisualPresentationStore({
+  const visualSnapshot = new AlarmVisualPresentationStore({
     theme:
       alarmDemoTheme.value === "contrast"
         ? { id: "contrast", tokens: { "alarm.high.fill": "theme.contrast.alarm.fill" } }
         : { id: "default" },
     motionPreference:
       alarmDemoMotion.getAttribute("aria-pressed") === "true" ? "reduce" : "no-preference"
+  }).apply(evaluated.snapshot, evaluated.diff).snapshot;
+  const presentation = visualSnapshot.symbols.get("node_alarm_beacon");
+  const overlays = new AlarmOverlayStore({
+    motionPreference:
+      alarmDemoMotion.getAttribute("aria-pressed") === "true" ? "reduce" : "no-preference"
   })
-    .apply(evaluated.snapshot, evaluated.diff)
+    .apply(visualSnapshot)
     .snapshot.symbols.get("node_alarm_beacon");
+  const visibilityManager = new RuntimeVisibilityManager({
+    motion: {
+      user: visibilityDemoPolicy.value as
+        "full-motion" | "reduced-motion" | "accessibility-mode" | "static-mode"
+    },
+    contrastMode: alarmDemoTheme.value === "contrast" ? "high-contrast" : "normal",
+    now: () => 1
+  });
+  const visibility = visibilityManager.update({
+    entityId: "node_alarm_beacon",
+    bounds: {
+      x: visibilityDemoState.value === "outside-viewport" ? 200 : 0,
+      y: 0,
+      width: 20,
+      height: 20
+    },
+    viewport: { x: 0, y: 0, width: 100, height: 100, zoom: 1 },
+    layerVisible: visibilityDemoState.value !== "hidden",
+    occluded: visibilityDemoState.value === "occluded",
+    ...(presentation === undefined ? {} : { alarmPresentation: presentation })
+  }).snapshot;
+  const visibilityEntry = visibility.entries.get("node_alarm_beacon");
+  const overlaySummary = overlays?.layers.map(({ type }) => type).join(",") ?? "";
+  const motionSummary = presentation?.animation.requests.join(",") ?? "";
   alarmDemoOutput.textContent =
     presentation === undefined
       ? "No active presentation"
-      : `${presentation.effectiveStatus} · ${presentation.effectiveSeverity} · badge:${presentation.badge.kind} · overlay:${presentation.overlay.kind} · icon:${presentation.icon.kind} · motion:${presentation.animation.requests.join(",") || "static"} · fill:${presentation.fill.token}`;
+      : `${presentation.effectiveStatus} · ${presentation.effectiveSeverity} · badge:${presentation.badge.kind} · overlay:${presentation.overlay.kind} · stack:${overlaySummary.length === 0 ? "none" : overlaySummary} · visibility:${visibilityEntry?.visibility ?? "hidden"} · scheduler:${visibilityEntry?.permission.scheduler ?? "pause"} · policy:${visibility.motionPolicy} · contrast:${visibilityEntry?.contrast.token ?? "contrast.normal"} · critical-visible:${String(visibilityEntry?.accessibility.preserveAlarmVisibility ?? false)} · metrics:${String(visibility.diagnostics.visibleSymbols)}/${String(visibility.diagnostics.totalSymbols)} · icon:${presentation.icon.kind} · motion:${motionSummary.length === 0 ? "static" : motionSummary} · fill:${presentation.fill.token}`;
   alarmEngine.dispose();
 }
 alarmDemoState.addEventListener("change", renderAlarmPresentationDemo);
 alarmDemoTheme.addEventListener("change", renderAlarmPresentationDemo);
+visibilityDemoPolicy.addEventListener("change", renderAlarmPresentationDemo);
+visibilityDemoState.addEventListener("change", renderAlarmPresentationDemo);
 alarmDemoMotion.addEventListener("click", () => {
   alarmDemoMotion.setAttribute(
     "aria-pressed",

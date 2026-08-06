@@ -23,3 +23,5 @@ export * from "./visual-state.js";
 export * from "./visual-snapshot.js";
 export * from "./alarm/index.js";
 export * from "./alarm-visual/index.js";
+export * from "./alarm-overlays/index.js";
+export * from "./visibility/index.js";

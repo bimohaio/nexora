@@ -143,7 +143,9 @@ function nodeEqual(left: ResolvedNodeVisualState, right: ResolvedNodeVisualState
     left.quality === right.quality &&
     jsonEqual(left.properties, right.properties) &&
     left.alarmState === right.alarmState &&
-    left.alarmPresentation === right.alarmPresentation
+    left.alarmPresentation === right.alarmPresentation &&
+    left.alarmOverlays === right.alarmOverlays &&
+    left.visibilityOptimization === right.visibilityOptimization
   ))
     return false;
   const leftSymbol = "effectiveState" in left ? (left as ResolvedSymbolVisualState) : undefined;
@@ -182,7 +184,9 @@ function connectionEqual(
     left.quality === right.quality &&
     jsonEqual(left.style, right.style) &&
     left.alarmState === right.alarmState &&
-    left.alarmPresentation === right.alarmPresentation
+    left.alarmPresentation === right.alarmPresentation &&
+    left.alarmOverlays === right.alarmOverlays &&
+    left.visibilityOptimization === right.visibilityOptimization
   );
 }
 
@@ -209,6 +213,9 @@ function changedNodeKeys(
   if (previous.quality !== current.quality) keys.push("quality");
   if (previous.alarmState !== current.alarmState) keys.push("alarmState");
   if (previous.alarmPresentation !== current.alarmPresentation) keys.push("alarmPresentation");
+  if (previous.alarmOverlays !== current.alarmOverlays) keys.push("alarmOverlays");
+  if (previous.visibilityOptimization !== current.visibilityOptimization)
+    keys.push("visibilityOptimization");
   const previousSymbol =
     "effectiveState" in previous ? (previous as ResolvedSymbolVisualState) : undefined;
   const currentSymbol =
@@ -229,6 +236,9 @@ function changedConnectionKeys(
   if (previous.quality !== current.quality) keys.push("quality");
   if (previous.alarmState !== current.alarmState) keys.push("alarmState");
   if (previous.alarmPresentation !== current.alarmPresentation) keys.push("alarmPresentation");
+  if (previous.alarmOverlays !== current.alarmOverlays) keys.push("alarmOverlays");
+  if (previous.visibilityOptimization !== current.visibilityOptimization)
+    keys.push("visibilityOptimization");
   return Object.freeze(keys);
 }
 

@@ -91,6 +91,9 @@
               <option value="Acknowledged">Acknowledged</option>
               <option value="Shelved">Shelved</option>
               <option value="Offline">Offline</option>
+              <option value="CommunicationFailure">Communication failure</option>
+              <option value="Maintenance">Maintenance mode</option>
+              <option value="Suppressed">Suppressed alarm</option>
               <option value="Disabled">Disabled</option>
             </select>
             <label for="alarm-demo-theme">Semantic theme</label>
@@ -101,6 +104,20 @@
             <button id="alarm-demo-motion" type="button" aria-pressed="false">
               Disable alarm motion
             </button>
+            <label for="visibility-demo-policy">Optimization policy</label>
+            <select id="visibility-demo-policy">
+              <option value="full-motion">Full motion</option>
+              <option value="reduced-motion">Reduced motion</option>
+              <option value="accessibility-mode">Accessibility mode</option>
+              <option value="static-mode">Static mode</option>
+            </select>
+            <label for="visibility-demo-state">Viewport visibility</label>
+            <select id="visibility-demo-state">
+              <option value="visible">Visible</option>
+              <option value="outside-viewport">Outside viewport</option>
+              <option value="occluded">Occluded</option>
+              <option value="hidden">Hidden layer</option>
+            </select>
             <output id="alarm-demo-output" class="alarm-contract" aria-live="polite"></output>
           </section>
 

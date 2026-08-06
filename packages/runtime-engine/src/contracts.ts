@@ -6,6 +6,8 @@ import type { RuntimeMetricsSnapshot } from "./metrics.js";
 import type { RuntimeRecoveryPolicies } from "./recovery.js";
 import type { AlarmAggregate, AlarmSnapshot } from "./alarm/types.js";
 import type { AlarmPresentation, AlarmVisualSnapshot } from "./alarm-visual/types.js";
+import type { OverlaySnapshot, OverlayStack } from "./alarm-overlays/types.js";
+import type { RuntimeVisibilityEntry, RuntimeVisibilitySnapshot } from "./visibility/types.js";
 
 export type RuntimeDataType = "boolean" | "number" | "string" | "json";
 export type DataQuality = "good" | "uncertain" | "bad" | "offline" | "unknown";
@@ -168,6 +170,8 @@ export interface ResolvedNodeVisualState {
   /** Renderer-neutral resolved alarm state; absent when no alarm engine is attached. */
   readonly alarmState?: AlarmAggregate;
   readonly alarmPresentation?: AlarmPresentation;
+  readonly alarmOverlays?: OverlayStack;
+  readonly visibilityOptimization?: RuntimeVisibilityEntry;
 }
 
 export type RuntimeVisualDirection = "none" | "forward" | "reverse" | "bidirectional";
@@ -248,6 +252,8 @@ export interface ResolvedConnectionVisualState {
   /** Renderer-neutral resolved alarm state; absent when no alarm engine is attached. */
   readonly alarmState?: AlarmAggregate;
   readonly alarmPresentation?: AlarmPresentation;
+  readonly alarmOverlays?: OverlayStack;
+  readonly visibilityOptimization?: RuntimeVisibilityEntry;
 }
 
 export interface RuntimeVisualSnapshot extends RuntimeVisualStateReader {
@@ -257,6 +263,8 @@ export interface RuntimeVisualSnapshot extends RuntimeVisualStateReader {
   readonly connections: ReadonlyMap<string, ResolvedConnectionVisualState>;
   readonly alarmSnapshot?: AlarmSnapshot;
   readonly alarmVisualSnapshot?: AlarmVisualSnapshot;
+  readonly overlaySnapshot?: OverlaySnapshot;
+  readonly visibilitySnapshot?: RuntimeVisibilitySnapshot;
 }
 
 export interface RuntimeVisualSnapshotDiff {

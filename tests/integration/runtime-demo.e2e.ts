@@ -218,6 +218,16 @@ test("Phase 10.06 showcase projects alarm states, themes, and reduced motion", a
     await page.locator("#alarm-demo-state").selectOption(state);
     await expect(output).toContainText(state);
   }
+
+  await page.locator("#alarm-demo-state").selectOption("Emergency");
+  await page.locator("#visibility-demo-policy").selectOption("accessibility-mode");
+  await expect(output).toContainText("policy:accessibility-mode");
+  await expect(output).toContainText("critical-visible:true");
+  await page.locator("#visibility-demo-state").selectOption("outside-viewport");
+  await expect(output).toContainText("visibility:outside-viewport");
+  await expect(output).toContainText("scheduler:pause");
+  await page.locator("#visibility-demo-state").selectOption("occluded");
+  await expect(output).toContainText("visibility:occluded");
 });
 
 test("external datasource choices degrade to configuration guidance", async ({ page }) => {
