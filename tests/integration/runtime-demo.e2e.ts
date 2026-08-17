@@ -1,5 +1,23 @@
 import { expect, test } from "@playwright/test";
 
+test("Phase 10.10 switches industrial scenarios and reports live diagnostics", async ({ page }) => {
+  await page.goto("/");
+  const diagnostics = page.locator("#phase10-diagnostics");
+  await expect(diagnostics).toBeVisible();
+  await expect(diagnostics.locator('[data-metric="renderer-instances"]')).toHaveText("1");
+  await expect(diagnostics.locator('[data-metric="runtime-revision"]')).toHaveText(/[1-9]/);
+
+  await Promise.all([
+    page.waitForURL(/sample=power/),
+    page.locator("#sample-select").selectOption("power")
+  ]);
+  await expect(
+    page.getByRole("heading", { name: "Power Distribution Control Center" })
+  ).toBeVisible();
+  await expect(page.locator('[data-entity-type="node"]')).toHaveCount(24);
+  await expect(page.locator("#runtime-status")).toHaveText("RUNNING");
+});
+
 test("runtime engine streams targeted visual state and supports viewer controls", async ({
   page
 }) => {
@@ -174,6 +192,15 @@ test("Phase 10.03 showcase exposes production animation controls and representat
     "node_animation_pipe"
   ])
     await expect(page.locator(`[data-node-id="${id}"]`).first()).toBeVisible();
+  await expect(
+    page.locator('[data-node-id="node_animation_fan"] [data-scada-part="motion"]').first()
+  ).toHaveAttribute("transform", /rotate\([^)]* 55 50\)/);
+  await expect(
+    page.locator('[data-node-id="node_animation_encoder"] [data-scada-part="motion"]').first()
+  ).toHaveAttribute("transform", /rotate\([^)]* 45 45\)/);
+  await expect(
+    page.locator('[data-node-id="node_animation_encoder"]').getByText("ENC", { exact: true })
+  ).not.toHaveAttribute("transform", /rotate/);
 
   await page.locator("#animation-speed").selectOption("2");
   await expect(page.locator("#animation-status")).toContainText("2×");

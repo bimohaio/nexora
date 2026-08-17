@@ -40,6 +40,25 @@ test("designer visually authors and maintains bindings", async ({ page }) => {
   await expect(page.locator("#binding-form-status")).toContainText("Binding created");
 });
 
+test("designer authors Phase 10 animation, alarm, motion, and visibility previews", async ({
+  page
+}) => {
+  await page.goto("/");
+  await page.locator('[data-node-id="node_tank"]').first().click();
+  const panel = page.locator("#phase10-authoring-panel");
+  await expect(panel).toBeVisible();
+  await panel.locator('select[name="animationPreset"]').selectOption("rotate");
+  await panel.locator('select[name="alarmSeverity"]').selectOption("critical");
+  await panel.locator('input[name="reducedMotion"]').check();
+  await panel.locator('input[name="visibilityOptimization"]').uncheck();
+  await expect(page.locator("#phase10-authoring-preview")).toContainText("critical alarm");
+  await expect(page.locator("#phase10-authoring-preview")).toContainText(
+    "static semantic fallback"
+  );
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(panel.locator('input[name="visibilityOptimization"]')).toBeChecked();
+});
+
 test("arrow keys nudge the selected node without grid snapping", async ({ page }) => {
   await page.goto("/");
   const tank = page.locator('[data-node-id="node_tank"]').first();

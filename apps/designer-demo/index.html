@@ -170,6 +170,40 @@
             <output id="binding-form-status" class="binding-form-status"></output>
           </form>
         </section>
+        <section id="phase10-authoring-panel" class="binding-panel" hidden>
+          <div class="section-heading">
+            <div>
+              <h3>Animation and alarm</h3>
+              <p>Public-contract authoring preview</p>
+            </div>
+          </div>
+          <form id="phase10-authoring-form" class="binding-form" data-shortcut-guard>
+            <label
+              >Animation preset
+              <select name="animationPreset">
+                <option value="none">None</option>
+                <option value="rotate">Rotate</option>
+                <option value="pulse">Pulse</option>
+                <option value="blink">Blink</option>
+                <option value="flow">Flow</option>
+              </select>
+            </label>
+            <label
+              >Alarm preview
+              <select name="alarmSeverity">
+                <option value="normal">Normal</option>
+                <option value="warning">Warning</option>
+                <option value="critical">Critical</option>
+              </select>
+            </label>
+            <label><input name="reducedMotion" type="checkbox" /> Preview reduced motion</label>
+            <label
+              ><input name="visibilityOptimization" type="checkbox" checked /> Preview visibility
+              optimization</label
+            >
+            <output id="phase10-authoring-preview" class="binding-form-status"></output>
+          </form>
+        </section>
         <section class="shortcuts">
           <h3>Shortcuts</h3>
           <p><kbd>Ctrl/Cmd</kbd> + C/X/V/D · Z · Shift+Z · A</p>

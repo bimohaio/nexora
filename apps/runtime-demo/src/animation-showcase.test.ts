@@ -21,6 +21,17 @@ describe("RuntimeAnimationShowcase", () => {
         "transform",
         `translate(${String(node.transform.x)} ${String(node.transform.y)})`
       );
+      if (
+        symbolRegistry
+          .require(node.symbolType)
+          .animation?.targets.some(({ part }) => part === "motion") === true
+      ) {
+        const motion = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        motion.dataset.scadaPart = "motion";
+        motion.dataset.animationOriginX = String(node.transform.width / 2);
+        motion.dataset.animationOriginY = String(node.transform.height / 2);
+        element.append(motion);
+      }
       document.body.append(element);
       elements.set(node.id, element);
     }
@@ -48,7 +59,12 @@ describe("RuntimeAnimationShowcase", () => {
     frameDriver.fireFrame(0);
     clock.set(500);
     frameDriver.fireFrame(500);
-    expect(elements.get("node_animation_fan")?.getAttribute("transform")).toContain("rotate(180)");
+    expect(
+      elements
+        .get("node_animation_fan")
+        ?.querySelector('[data-scada-part="motion"]')
+        ?.getAttribute("transform")
+    ).toContain("rotate(180 55 50)");
     expect(elements.get("node_animation_pipe")?.getAttribute("stroke-dashoffset")).not.toBeNull();
 
     showcase.setSpeed(2);

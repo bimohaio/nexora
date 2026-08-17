@@ -683,6 +683,7 @@ export class NativeSvgRenderer implements SvgRenderer {
     if (this.#document === undefined) return;
     const runtimeState = this.#runtimeSnapshot ?? this.#runtimeState;
     const resolvedVisualState = runtimeState?.getNodeVisualState?.(node.id);
+    const alarmState = this.#runtimeSnapshot?.nodes?.get(node.id)?.alarmState;
     const runtimeProperties =
       resolvedVisualState?.properties ?? runtimeState?.getNodeProperties?.(node.id);
     const runtimeVisibility =
@@ -710,7 +711,10 @@ export class NativeSvgRenderer implements SvgRenderer {
       layerId: resolvedNode.layerId,
       symbolType: resolvedNode.symbolType,
       visible: String(resolvedNode.visible),
-      locked: String(resolvedNode.locked)
+      locked: String(resolvedNode.locked),
+      alarmStatus: alarmState?.effectiveStatus,
+      alarmSeverity: alarmState?.effectiveSeverity,
+      alarmOverlay: alarmState?.visual.overlay
     });
     group.setAttribute("transform", createNodeTransform(resolvedNode.transform));
     group.style.display = resolvedNode.visible ? "" : "none";
@@ -736,6 +740,13 @@ export class NativeSvgRenderer implements SvgRenderer {
       "scada-state-disabled"
     );
     group.classList.add(runtimeStateClass(state));
+    group.classList.toggle("scada-alarm-active", alarmState?.effectiveStatus === "Active");
+    group.classList.toggle(
+      "scada-alarm-acknowledged",
+      alarmState?.effectiveStatus === "Acknowledged"
+    );
+    group.classList.toggle("scada-alarm-blink", alarmState?.visual.blink === true);
+    group.classList.toggle("scada-alarm-flash", alarmState?.visual.flash === true);
     const context: SvgSymbolRenderContext = {
       document: this.#document,
       node: resolvedNode,
@@ -794,6 +805,8 @@ export class NativeSvgRenderer implements SvgRenderer {
           context
         );
     }
+    visual.dataset.animationOriginX = String(resolvedNode.transform.width / 2);
+    visual.dataset.animationOriginY = String(resolvedNode.transform.height / 2);
     let title = findDirectTitle(group);
     if (title === undefined) {
       title = createSvgElement("title");
@@ -851,6 +864,7 @@ export class NativeSvgRenderer implements SvgRenderer {
     const runtimeState = this.#runtimeSnapshot ?? this.#runtimeState;
     const runtimeStyle = runtimeState?.getConnectionStyle?.(connection.id);
     const runtimeVisibility = runtimeState?.getConnectionVisibility?.(connection.id);
+    const alarmState = this.#runtimeSnapshot?.connections?.get(connection.id)?.alarmState;
     const resolvedConnection: ScadaConnection = {
       ...connection,
       style:
@@ -868,6 +882,15 @@ export class NativeSvgRenderer implements SvgRenderer {
     }
     if (path.parentNode !== layer.connections) layer.connections.append(path);
     this.#styleConnectionPath(path, resolvedConnection, pathData, false);
+    path.dataset.alarmStatus = alarmState?.effectiveStatus ?? "";
+    path.dataset.alarmSeverity = alarmState?.effectiveSeverity ?? "";
+    path.classList.toggle("scada-alarm-active", alarmState?.effectiveStatus === "Active");
+    path.classList.toggle(
+      "scada-alarm-acknowledged",
+      alarmState?.effectiveStatus === "Acknowledged"
+    );
+    path.classList.toggle("scada-alarm-blink", alarmState?.visual.blink === true);
+    path.classList.toggle("scada-alarm-flash", alarmState?.visual.flash === true);
 
     let hitArea = this.#connectionHitElements.get(resolvedConnection.id);
     if (hitArea === undefined) {

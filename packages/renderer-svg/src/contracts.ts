@@ -74,6 +74,21 @@ export interface RendererResolvedSymbolVisualState {
   readonly visible?: boolean;
 }
 
+export interface RendererResolvedAlarmState {
+  readonly effectiveStatus: string;
+  readonly effectiveSeverity: string;
+  readonly ackRequired: boolean;
+  readonly visual: {
+    readonly blink: boolean;
+    readonly flash: boolean;
+    readonly overlay: string;
+  };
+}
+
+export interface RendererResolvedEntityVisualState {
+  readonly alarmState?: RendererResolvedAlarmState;
+}
+
 export interface RuntimeVisualStateReader {
   getNodeVisualState?(nodeId: string): RendererResolvedSymbolVisualState | undefined;
   getNodeState(nodeId: string): SymbolState | undefined;
@@ -88,6 +103,8 @@ export interface RuntimeVisualStateReader {
 export interface RendererRuntimeSnapshot extends RuntimeVisualStateReader {
   readonly revision: number;
   readonly timestamp: number;
+  readonly nodes?: ReadonlyMap<string, RendererResolvedEntityVisualState>;
+  readonly connections?: ReadonlyMap<string, RendererResolvedEntityVisualState>;
 }
 
 export interface RendererRuntimeChangeSet {

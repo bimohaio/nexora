@@ -1,4 +1,4 @@
-# Phase 9 browser system showcase
+# Phase 10 browser system showcase
 
 The runtime demo is the integrated browser showcase for the validated SCADA document, industrial
 symbols, SVG renderer, Designer Engine selection, Runtime and Binding engines, Data Source Manager,
@@ -14,3 +14,6 @@ Vite prints the selected local URL; the default development URL is `http://local
 
 See [the browser demo guide](../../docs/demos/browser-integration-demo.md) for capabilities,
 adapter limitations, security, tests, and cleanup behavior.
+
+Phase 10 scenarios, diagnostics and authoring handoff are documented in
+[the Phase 10 browser demo guide](../../docs/runtime/browser-demo.md).

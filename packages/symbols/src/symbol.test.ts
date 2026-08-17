@@ -141,12 +141,16 @@ describe("InMemorySymbolRegistry", () => {
       ).toBe(true);
       expect(JSON.stringify(animation)).not.toMatch(/selector|HTMLElement|requestAnimationFrame/);
     }
+    for (const type of ["electrical.ac-motor", "bms.supply-fan", "instrumentation.encoder.rotary"])
+      expect(
+        registry.require(type).animation?.targets.find(({ id }) => id === "motion")?.part
+      ).toBe("motion");
   });
 
   it("validates animation target, slot and parameter metadata", () => {
     const registry = new InMemorySymbolRegistry();
-    expect(() =>
-      { registry.register({
+    expect(() => {
+      registry.register({
         ...definition,
         type: "example.animated",
         animation: {
@@ -163,8 +167,8 @@ describe("InMemorySymbolRegistry", () => {
           ],
           parameters: []
         }
-      }); }
-    ).toThrow("Invalid animation slot");
+      });
+    }).toThrow("Invalid animation slot");
   });
 
   it("accepts renderer-neutral animation metadata contributed by a plugin", () => {

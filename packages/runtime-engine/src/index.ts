@@ -2,6 +2,7 @@ export * from "./contracts.js";
 export * from "./diagnostics.js";
 export * from "./datasource-ingestion.js";
 export * from "./dispatch.js";
+export * from "./dirty-collector.js";
 export * from "./engine.js";
 export * from "./errors.js";
 export * from "./logging.js";

@@ -27,6 +27,29 @@ interface TransformState {
   lastApplied?: string;
 }
 
+function finiteAttribute(element: Element, name: string): number | undefined {
+  const value = element.getAttribute(name);
+  if (value === null || value.trim() === "") return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function rotationOrigin(element: Element): Readonly<Vector2Value> | undefined {
+  const x = finiteAttribute(element, "data-animation-origin-x");
+  const y = finiteAttribute(element, "data-animation-origin-y");
+  if (x !== undefined && y !== undefined) return { x, y };
+  if (!(element instanceof SVGGraphicsElement) || typeof element.getBBox !== "function")
+    return undefined;
+  try {
+    const bounds = element.getBBox();
+    if (![bounds.x, bounds.y, bounds.width, bounds.height].every(Number.isFinite)) return undefined;
+    if (bounds.width === 0 && bounds.height === 0) return undefined;
+    return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  } catch {
+    return undefined;
+  }
+}
+
 export class RenderPartResolver {
   readonly #cache = new Map<string, Element>();
 
@@ -76,7 +99,7 @@ export class TransformComposer {
       this.#states.set(element, state);
     } else if (state.lastApplied !== undefined && current !== state.lastApplied)
       state.base = current;
-    const addition = this.#serialize(value, property);
+    const addition = this.#serialize(element, value, property);
     const composed = [state.base, addition].filter((entry) => entry !== "").join(" ");
     element.setAttribute("transform", composed);
     state.lastApplied = composed;
@@ -91,10 +114,16 @@ export class TransformComposer {
   }
 
   #serialize(
+    element: Element,
     value: number | Readonly<Vector2Value> | Partial<Readonly<TransformValue>>,
     property: string
   ): string {
-    if (property === "rotation" && typeof value === "number") return `rotate(${String(value)})`;
+    if (property === "rotation" && typeof value === "number") {
+      const origin = rotationOrigin(element);
+      return origin === undefined
+        ? `rotate(${String(value)})`
+        : `rotate(${String(value)} ${String(origin.x)} ${String(origin.y)})`;
+    }
     if (property === "translation" && typeof value === "object" && "x" in value)
       return `translate(${String(value.x)} ${String(value.y)})`;
     if (property === "scale" && typeof value === "object" && "x" in value)

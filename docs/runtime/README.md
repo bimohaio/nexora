@@ -1,5 +1,7 @@
 # Runtime Engine
 
+- [Phase 10.09 visual pipeline](./phase-10-09-visual-pipeline.md)
+
 Phase 6 establishes the renderer-neutral runtime for transient SCADA values.
 The certified canonical flow is:
 

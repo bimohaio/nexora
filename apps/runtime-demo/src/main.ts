@@ -24,9 +24,10 @@ import {
   isPublishDocumentMessage,
   resolveDesignerUrl
 } from "./designer-handoff.js";
-import { WATER_TREATMENT_DOCUMENT } from "./sample-document.js";
 import { ManagedSimulatorProvider } from "./simulated-provider.js";
 import { RuntimeAnimationShowcase } from "./animation-showcase.js";
+import { BrowserDemoDiagnostics } from "./browser-demo-diagnostics.js";
+import { getRuntimeDemoSample } from "./sample-catalog.js";
 
 // The generic maps a known selector to its expected DOM subtype.
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
@@ -61,6 +62,9 @@ const alarmDemoMotion = required<HTMLButtonElement>("#alarm-demo-motion");
 const alarmDemoOutput = required<HTMLOutputElement>("#alarm-demo-output");
 const visibilityDemoPolicy = required<HTMLSelectElement>("#visibility-demo-policy");
 const visibilityDemoState = required<HTMLSelectElement>("#visibility-demo-state");
+const sampleSelect = required<HTMLSelectElement>("#sample-select");
+const phase10Diagnostics = required<HTMLElement>("#phase10-diagnostics");
+const demoDiagnostics = new BrowserDemoDiagnostics();
 
 const alarmDemoSeverities: Readonly<Record<string, AlarmInput["severity"]>> = Object.freeze({
   Normal: "none",
@@ -164,10 +168,15 @@ renderAlarmPresentationDemo();
 
 const symbolEnvironment = createIndustrialSymbolEnvironment();
 const { symbolRegistry: symbols, svgVisualRegistry: symbolVisuals } = symbolEnvironment;
+const selectedSample = getRuntimeDemoSample(
+  new URL(window.location.href).searchParams.get("sample")
+);
+sampleSelect.value = selectedSample.id;
+required<HTMLElement>("#sample-heading").textContent = `${selectedSample.label} Control Center`;
 const storedDocumentJson = window.sessionStorage.getItem(PUBLISHED_DOCUMENT_STORAGE_KEY);
 const parsed =
   storedDocumentJson === null
-    ? parseDocument(WATER_TREATMENT_DOCUMENT, { symbolRegistry: symbols })
+    ? parseDocument(selectedSample.document, { symbolRegistry: symbols })
     : parseDocumentJson(storedDocumentJson, { symbolRegistry: symbols });
 if (!parsed.success) throw new Error(parsed.issues.map(({ message }) => message).join("; "));
 const documentModel = parsed.document;
@@ -218,7 +227,11 @@ const renderer = createSvgRenderer({
   symbols,
   symbolRenderers: symbolVisuals,
   runtimeState: runtime.visualState,
-  onEvent: updateViewportStatus,
+  onEvent: (event) => {
+    updateViewportStatus(event);
+    if (event.type === "render-started") demoDiagnostics.renderStarted(performance.now());
+    if (event.type === "render-completed") demoDiagnostics.renderCompleted(performance.now());
+  },
   options: {
     showGrid,
     showPorts,
@@ -282,7 +295,47 @@ function updateRuntimeStatus(_event?: RuntimeEngineEvent): void {
     lastDiagnostic === undefined
       ? "No diagnostics"
       : `${lastDiagnostic.code}: ${lastDiagnostic.message}`;
+  demoDiagnostics.update({
+    runtimeRevision: snapshot.runtimeRevision,
+    dirtyObjects:
+      _event?.type === "values"
+        ? _event.affected.nodeIds.length + _event.affected.connectionIds.length
+        : 0
+  });
 }
+
+function updatePhase10Diagnostics(): void {
+  const animation = animationShowcase.getSnapshot();
+  demoDiagnostics.update({
+    activeAnimations: animation.activeSlotCount,
+    activeAlarms: provider.alarm ? 1 : 0,
+    memoryCounters: renderer.getSvgElement()?.querySelectorAll("*").length ?? 0,
+    rendererInstances: renderer.getSvgElement() === undefined ? 0 : 1
+  });
+  const snapshot = demoDiagnostics.snapshot();
+  const fields: readonly [string, string][] = [
+    ["FPS", String(snapshot.fps)],
+    ["Render time", `${snapshot.averageRenderTimeMs.toFixed(2)} ms`],
+    ["Dirty objects", String(snapshot.dirtyObjects)],
+    ["Runtime revision", String(snapshot.runtimeRevision)],
+    ["Active animations", String(snapshot.activeAnimations)],
+    ["Active alarms", String(snapshot.activeAlarms)],
+    ["Memory counters", String(snapshot.memoryCounters)],
+    ["Renderer instances", String(snapshot.rendererInstances)]
+  ];
+  phase10Diagnostics.replaceChildren(
+    ...fields.flatMap(([term, value]) => {
+      const dt = document.createElement("dt");
+      const dd = document.createElement("dd");
+      dt.textContent = term;
+      dd.textContent = value;
+      dd.dataset.metric = term.toLowerCase().replaceAll(" ", "-");
+      return [dt, dd];
+    })
+  );
+}
+const diagnosticsTimer = window.setInterval(updatePhase10Diagnostics, 500);
+updatePhase10Diagnostics();
 
 function updateDatasourcePanels(): void {
   const snapshot = provider.getDiagnostics();
@@ -622,6 +675,13 @@ required<HTMLButtonElement>("#subscribe-toggle").addEventListener("click", () =>
   else void startRuntime();
 });
 datasourceSelect.addEventListener("change", showAdapterConfiguration);
+sampleSelect.addEventListener("change", () => {
+  const url = new URL(window.location.href);
+  url.searchParams.set("sample", sampleSelect.value);
+  window.sessionStorage.removeItem(PUBLISHED_DOCUMENT_STORAGE_KEY);
+  window.sessionStorage.removeItem(PUBLISHED_REVISION_STORAGE_KEY);
+  window.location.assign(url);
+});
 required<HTMLButtonElement>("#undo").addEventListener("click", () => {
   designer.undo();
 });
@@ -668,6 +728,7 @@ const observer = new ResizeObserver(([entry]) => {
 observer.observe(viewer);
 
 async function dispose(): Promise<void> {
+  window.clearInterval(diagnosticsTimer);
   window.removeEventListener("message", receiveDesignerPublish);
   document.removeEventListener("visibilitychange", syncDocumentVisibility);
   motionPreference.removeEventListener("change", observeMotionPreference);

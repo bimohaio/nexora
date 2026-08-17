@@ -211,10 +211,20 @@ function drawInstrument(group: SVGGElement, context: SvgSymbolRenderContext, cod
   body.setAttribute("cy", String(height / 2));
   body.setAttribute("r", String(radius));
   stylePrimary(body, context);
-  group.append(
-    body,
-    text(propertyString(context, "code", code), width / 2, height / 2, radius * 0.7)
-  );
+  const label = text(propertyString(context, "code", code), width / 2, height / 2, radius * 0.7);
+  if (context.node.symbolType === INDUSTRIAL_SYMBOL_TYPES.encoder) {
+    const motion = createMotionPart(context);
+    motion.append(body);
+    group.append(motion, label);
+  } else group.append(body, label);
+}
+
+function createMotionPart(context: SvgSymbolRenderContext): SVGGElement {
+  const motion = createSvgElement("g");
+  motion.dataset.scadaPart = "motion";
+  motion.dataset.animationOriginX = String(context.node.transform.width / 2);
+  motion.dataset.animationOriginY = String(context.node.transform.height / 2);
+  return motion;
 }
 
 function drawFan(group: SVGGElement, context: SvgSymbolRenderContext, reverse: boolean): void {
@@ -227,13 +237,14 @@ function drawFan(group: SVGGElement, context: SvgSymbolRenderContext, reverse: b
   body.setAttribute("cy", String(cy));
   body.setAttribute("r", String(radius));
   stylePrimary(body, context);
-  group.append(body);
+  const motion = createMotionPart(context);
+  motion.append(body);
   const direction = reverse ? -1 : 1;
   for (let index = 0; index < 3; index += 1) {
     const angle = (index * Math.PI * 2) / 3;
     const x = cx + Math.cos(angle) * radius * 0.72;
     const y = cy + Math.sin(angle) * radius * 0.72;
-    group.append(
+    motion.append(
       path(
         `M ${cx} ${cy} Q ${cx + Math.cos(angle + direction) * radius * 0.55} ${cy + Math.sin(angle + direction) * radius * 0.55} ${x} ${y}`,
         "none",
@@ -241,6 +252,7 @@ function drawFan(group: SVGGElement, context: SvgSymbolRenderContext, reverse: b
       )
     );
   }
+  group.append(motion);
 }
 
 function drawControl(group: SVGGElement, context: SvgSymbolRenderContext, code: string): void {
@@ -342,7 +354,9 @@ function drawGlyph(
     body.setAttribute("cy", String(cy));
     body.setAttribute("r", String(Math.min(width, height) / 2 - 4));
     stylePrimary(body, context);
-    group.append(body, text(descriptor.code ?? "M", cx, cy, Math.min(width, height) * 0.35));
+    const motion = createMotionPart(context);
+    motion.append(body);
+    group.append(motion, text(descriptor.code ?? "M", cx, cy, Math.min(width, height) * 0.35));
   } else if (descriptor.glyph === "transformer") {
     const radius = Math.min(width, height) * 0.28;
     for (const offset of [-radius * 0.55, radius * 0.55]) {

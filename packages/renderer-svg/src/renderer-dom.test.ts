@@ -304,18 +304,43 @@ describe("NativeSvgRenderer lifecycle and rendering", () => {
     expect(nodeAVisual?.firstElementChild).toBe(nodeAShape);
 
     renderer.renderRuntimeChanges(
-      { revision: 2, timestamp: 200, getNodeState: () => undefined },
-      { ...baseDiff, fromRevision: 1, toRevision: 2, updatedNodeIds: ["node_a"], reset: true }
+      {
+        revision: 2,
+        timestamp: 150,
+        getNodeState: () => "normal",
+        nodes: new Map([
+          [
+            "node_a",
+            {
+              alarmState: {
+                effectiveStatus: "Active",
+                effectiveSeverity: "critical",
+                ackRequired: true,
+                visual: { blink: true, flash: false, overlay: "border" }
+              }
+            }
+          ]
+        ])
+      },
+      { ...baseDiff, fromRevision: 1, toRevision: 2, updatedNodeIds: ["node_a"] }
+    );
+    expect(nodeA?.dataset.alarmSeverity).toBe("critical");
+    expect(nodeA?.classList.contains("scada-alarm-active")).toBe(true);
+    expect(nodeA?.classList.contains("scada-alarm-blink")).toBe(true);
+
+    renderer.renderRuntimeChanges(
+      { revision: 3, timestamp: 200, getNodeState: () => undefined },
+      { ...baseDiff, fromRevision: 2, toRevision: 3, updatedNodeIds: ["node_a"], reset: true }
     );
     expect(nodeA?.classList.contains("scada-state-normal")).toBe(true);
 
     renderer.renderRuntimeChanges(
       {
-        revision: 3,
+        revision: 4,
         timestamp: 300,
         getNodeState: (id) => (id === "node_a" ? "running" : undefined)
       },
-      { ...baseDiff, fromRevision: 999, toRevision: 3, updatedNodeIds: ["node_a"] }
+      { ...baseDiff, fromRevision: 999, toRevision: 4, updatedNodeIds: ["node_a"] }
     );
     expect(nodeA?.classList.contains("scada-state-running")).toBe(true);
     expect(renderer.getElementForNode("node_b")).toBe(nodeB);

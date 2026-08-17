@@ -102,6 +102,20 @@ describe("industrial SVG symbol visuals", () => {
       expect(visual?.dataset.scadaRendererType).toBe(definition.type);
       expect(visual?.getAttribute("transform")).toBeNull();
     }
+    for (const symbolType of [
+      INDUSTRIAL_SYMBOL_TYPES.acMotor,
+      INDUSTRIAL_SYMBOL_TYPES.supplyFan,
+      INDUSTRIAL_SYMBOL_TYPES.encoder
+    ]) {
+      const index = INDUSTRIAL_SYMBOLS.findIndex(({ type }) => type === symbolType);
+      const visual = renderer
+        .getElementForNode(`node_${String(index)}`)
+        ?.querySelector<SVGGElement>("[data-scada-symbol]");
+      const motion = visual?.querySelector<SVGGElement>('[data-scada-part="motion"]');
+      expect(motion).toBeDefined();
+      expect(motion?.dataset.animationOriginX).not.toBeUndefined();
+      expect(motion?.querySelector("text")).toBeNull();
+    }
     const unchanged = renderer.getElementForNode("node_1");
     renderer.refreshRuntimeStates(["node_0"]);
     expect(renderer.getElementForNode("node_1")).toBe(unchanged);

@@ -12,6 +12,7 @@ export * from "./incremental.js";
 export * from "./normalization.js";
 export * from "./registry.js";
 export * from "./runtime-renderer-integration.js";
+export * from "./runtime-visual-integration-pipeline.js";
 export * from "./transforms.js";
 export * from "./transformed-evaluators.js";
 export * from "./thresholds.js";

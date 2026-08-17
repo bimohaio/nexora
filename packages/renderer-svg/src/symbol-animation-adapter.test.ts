@@ -6,13 +6,17 @@ import { SvgSymbolAnimationAdapter, TransformComposer } from "./symbol-animation
 const svgNamespace = "http://www.w3.org/2000/svg";
 
 describe("SVG symbol animation adapter", () => {
-  beforeEach(() => { document.body.replaceChildren(); });
+  beforeEach(() => {
+    document.body.replaceChildren();
+  });
 
   it("caches render parts, preserves identity and composes with the base transform", () => {
     const svg = document.createElementNS(svgNamespace, "svg");
     const node = document.createElementNS(svgNamespace, "g");
     const visual = document.createElementNS(svgNamespace, "g");
     visual.dataset.scadaSymbol = "";
+    visual.dataset.animationOriginX = "50";
+    visual.dataset.animationOriginY = "40";
     visual.setAttribute("transform", "translate(10 20)");
     node.append(visual);
     svg.append(node);
@@ -30,7 +34,7 @@ describe("SVG symbol animation adapter", () => {
     expect(lookup).toHaveBeenCalledOnce();
     expect(adapter.cachedTargetCount).toBe(1);
     expect(node.firstElementChild).toBe(visual);
-    expect(visual.getAttribute("transform")).toBe("translate(10 20) rotate(180)");
+    expect(visual.getAttribute("transform")).toBe("translate(10 20) rotate(180 50 40)");
     adapter.remove("motor");
     expect(visual.getAttribute("transform")).toBe("translate(10 20)");
   });
@@ -96,5 +100,15 @@ describe("TransformComposer", () => {
     element.setAttribute("transform", "translate(20 30)");
     composer.apply(element, 20, "rotation");
     expect(element.getAttribute("transform")).toBe("translate(20 30) rotate(20)");
+  });
+
+  it("rotates around an explicit symbol center and preserves it across samples", () => {
+    const element = document.createElementNS(svgNamespace, "g");
+    const composer = new TransformComposer();
+    element.dataset.animationOriginX = "45";
+    element.dataset.animationOriginY = "45";
+    composer.apply(element, 90, "rotation");
+    composer.apply(element, 180, "rotation");
+    expect(element.getAttribute("transform")).toBe("rotate(180 45 45)");
   });
 });

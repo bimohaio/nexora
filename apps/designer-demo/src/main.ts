@@ -44,6 +44,13 @@ import { DESIGNER_SAMPLE_DOCUMENT } from "./sample-document.js";
 import { resolveDesignerDocument } from "./document-handoff.js";
 import { DesignerOverlay } from "./overlay.js";
 import {
+  describePhase10Preview,
+  readPhase10AuthoringState,
+  writePhase10AuthoringState,
+  type AlarmPreviewSeverity,
+  type AnimationPreset
+} from "./phase10-authoring.js";
+import {
   loadSymbolLibraryPreferences,
   normalizeSymbolLibrary,
   querySymbolLibrary,
@@ -102,6 +109,9 @@ const bindingCount = required<HTMLOutputElement>("#binding-count");
 const bindingForm = required<HTMLFormElement>("#binding-form");
 const bindingFormStatus = required<HTMLOutputElement>("#binding-form-status");
 const bindingSourceLabel = required<HTMLElement>("#binding-source-label");
+const phase10AuthoringPanel = required<HTMLElement>("#phase10-authoring-panel");
+const phase10AuthoringForm = required<HTMLFormElement>("#phase10-authoring-form");
+const phase10AuthoringPreview = required<HTMLOutputElement>("#phase10-authoring-preview");
 const {
   symbolRegistry: symbols,
   categoryRegistry: symbolCategories,
@@ -1182,6 +1192,7 @@ function renderInspector(): void {
       : undefined;
   inspector.hidden = node === undefined;
   emptyInspector.hidden = node !== undefined;
+  phase10AuthoringPanel.hidden = node === undefined;
   if (node === undefined) return;
   field("name").value = node.name;
   field("x").value = String(node.transform.x);
@@ -1206,7 +1217,45 @@ function renderInspector(): void {
   }
   variantSelect.value =
     typeof node.properties.variant === "string" ? node.properties.variant : (variants[0]?.id ?? "");
+  const phase10 = readPhase10AuthoringState(node);
+  const animationPreset = phase10AuthoringForm.elements.namedItem("animationPreset");
+  const alarmSeverity = phase10AuthoringForm.elements.namedItem("alarmSeverity");
+  const reducedMotion = phase10AuthoringForm.elements.namedItem("reducedMotion");
+  const visibilityOptimization = phase10AuthoringForm.elements.namedItem("visibilityOptimization");
+  if (animationPreset instanceof HTMLSelectElement) animationPreset.value = phase10.animationPreset;
+  if (alarmSeverity instanceof HTMLSelectElement) alarmSeverity.value = phase10.alarmSeverity;
+  if (reducedMotion instanceof HTMLInputElement) reducedMotion.checked = phase10.reducedMotion;
+  if (visibilityOptimization instanceof HTMLInputElement)
+    visibilityOptimization.checked = phase10.visibilityOptimization;
+  phase10AuthoringPreview.value = describePhase10Preview(phase10);
 }
+
+phase10AuthoringForm.addEventListener("change", () => {
+  const nodeId = designer.getState().selection.selectedNodeIds[0];
+  if (nodeId === undefined) return;
+  const animationPreset = phase10AuthoringForm.elements.namedItem("animationPreset");
+  const alarmSeverity = phase10AuthoringForm.elements.namedItem("alarmSeverity");
+  const reducedMotion = phase10AuthoringForm.elements.namedItem("reducedMotion");
+  const visibilityOptimization = phase10AuthoringForm.elements.namedItem("visibilityOptimization");
+  if (
+    !(animationPreset instanceof HTMLSelectElement) ||
+    !(alarmSeverity instanceof HTMLSelectElement) ||
+    !(reducedMotion instanceof HTMLInputElement) ||
+    !(visibilityOptimization instanceof HTMLInputElement)
+  )
+    return;
+  const authoring = {
+    animationPreset: animationPreset.value as AnimationPreset,
+    alarmSeverity: alarmSeverity.value as AlarmPreviewSeverity,
+    reducedMotion: reducedMotion.checked,
+    visibilityOptimization: visibilityOptimization.checked
+  };
+  designer.updateNode(nodeId, (node): ScadaNode => ({
+    ...node,
+    properties: writePhase10AuthoringState(node.properties, authoring)
+  }));
+  phase10AuthoringPreview.value = describePhase10Preview(authoring);
+});
 
 inspector.addEventListener("change", () => {
   const nodeId = designer.getState().selection.selectedNodeIds[0];

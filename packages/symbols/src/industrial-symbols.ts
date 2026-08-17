@@ -137,7 +137,18 @@ function industrialSymbol(options: IndustrialSymbolOptions): SymbolDefinition {
   if (/(pipe|conveyor)/.test(name)) profiles.push("flow");
   if (/(tank|vessel)/.test(name)) profiles.push("level");
   if (/(lamp|beacon|indicator)/.test(name)) profiles.push("indicator");
-  if (name.includes('valve')) profiles.push("valve");
+  if (name.includes("valve")) profiles.push("valve");
+  const animation =
+    profiles.length === 0 ? undefined : createBuiltInSymbolAnimationMetadata(profiles);
+  const resolvedAnimation =
+    animation === undefined || !/(motor|fan|encoder)/.test(name)
+      ? animation
+      : {
+          ...animation,
+          targets: animation.targets.map((target) =>
+            target.id === "motion" ? { ...target, part: "motion" } : target
+          )
+        };
   return {
     type: options.type,
     version: 1,
@@ -156,7 +167,7 @@ function industrialSymbol(options: IndustrialSymbolOptions): SymbolDefinition {
     ],
     supportedStates: states,
     runtimeCapabilities: options.capabilities ?? ALL_RUNTIME_CAPABILITIES,
-    ...(profiles.length === 0 ? {} : { animation: createBuiltInSymbolAnimationMetadata(profiles) }),
+    ...(resolvedAnimation === undefined ? {} : { animation: resolvedAnimation }),
     capabilities: [
       "resizable",
       "rotatable",

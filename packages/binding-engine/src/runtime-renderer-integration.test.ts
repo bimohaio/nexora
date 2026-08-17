@@ -1,11 +1,17 @@
 import type { PropertyBinding, ScadaDocument } from "@web-scada/core";
 import {
   InMemoryTagStore,
+  ManualRuntimeScheduler,
   type RuntimeVisualSnapshot,
   type RuntimeVisualSnapshotDiff
 } from "@web-scada/runtime-engine";
 import { describe, expect, it, vi } from "vitest";
-import { ManualBindingSchedulingAdapter, RuntimeBindingRendererIntegration } from "./index.js";
+import {
+  ManualBindingSchedulingAdapter,
+  RuntimeBindingRendererIntegration,
+  RuntimeAlarmIntegrationStage,
+  RuntimeVisualIntegrationPipeline
+} from "./index.js";
 
 function document(bindings?: readonly PropertyBinding[]): ScadaDocument {
   const defaults: readonly PropertyBinding[] = [
@@ -171,5 +177,127 @@ describe("RuntimeBindingRendererIntegration", () => {
       integration.getSnapshot(),
       expect.objectContaining({ reset: true })
     );
+  });
+});
+
+describe("RuntimeVisualIntegrationPipeline", () => {
+  it("runs alarm then animation and batches rapid resolved updates into one render", () => {
+    const store = new InMemoryTagStore({ now: () => 10 });
+    const renderScheduler = new ManualRuntimeScheduler();
+    const order: string[] = [];
+    const renderRuntimeChanges =
+      vi.fn<(snapshot: RuntimeVisualSnapshot, diff: RuntimeVisualSnapshotDiff) => void>();
+    const renderer = { renderRuntimeChanges };
+    const pipeline = new RuntimeVisualIntegrationPipeline({
+      document: document(),
+      store,
+      renderer,
+      schedulingMode: "immediate",
+      renderScheduler,
+      alarm: {
+        kind: "alarm",
+        resolve: (commit) => {
+          order.push("alarm");
+          return commit;
+        }
+      },
+      animation: {
+        kind: "animation",
+        resolve: (commit) => {
+          order.push("animation");
+          return commit;
+        }
+      }
+    });
+    pipeline.start();
+    renderScheduler.flush();
+    renderer.renderRuntimeChanges.mockClear();
+    order.length = 0;
+
+    store.update({ key: "pump.fill", value: "#ef4444", quality: "good" });
+    store.update({ key: "pump.fill", value: "#22c55e", quality: "good" });
+    expect(renderer.renderRuntimeChanges).not.toHaveBeenCalled();
+    renderScheduler.flush();
+
+    expect(order).toEqual(["alarm", "animation"]);
+    expect(renderer.renderRuntimeChanges).toHaveBeenCalledOnce();
+    expect(renderer.renderRuntimeChanges.mock.calls[0]?.[0].getNodeProperties("pump")).toEqual({
+      fill: "#22c55e"
+    });
+    pipeline.dispose();
+  });
+
+  it("propagates global policy and cancels pending work on disposal", () => {
+    const store = new InMemoryTagStore({ now: () => 10 });
+    const renderScheduler = new ManualRuntimeScheduler();
+    const setReducedMotion = vi.fn();
+    const setVisibility = vi.fn();
+    const dispose = vi.fn();
+    const renderRuntimeChanges =
+      vi.fn<(snapshot: RuntimeVisualSnapshot, diff: RuntimeVisualSnapshotDiff) => void>();
+    const renderer = { renderRuntimeChanges };
+    const pipeline = new RuntimeVisualIntegrationPipeline({
+      document: document(),
+      store,
+      renderer,
+      schedulingMode: "immediate",
+      renderScheduler,
+      animation: {
+        kind: "animation",
+        resolve: (commit) => commit,
+        setReducedMotion,
+        setVisibility,
+        dispose
+      }
+    });
+    pipeline.start();
+    pipeline.setReducedMotion("reduce");
+    pipeline.setVisibility("document-hidden");
+    pipeline.dispose();
+    renderScheduler.flush();
+
+    expect(setReducedMotion).toHaveBeenCalledWith("reduce");
+    expect(setVisibility).toHaveBeenCalledWith("document-hidden");
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(renderer.renderRuntimeChanges).not.toHaveBeenCalled();
+  });
+
+  it("composes resolved alarm state before the renderer boundary", () => {
+    const store = new InMemoryTagStore({ now: () => 10 });
+    const renderScheduler = new ManualRuntimeScheduler();
+    const renderRuntimeChanges =
+      vi.fn<(snapshot: RuntimeVisualSnapshot, diff: RuntimeVisualSnapshotDiff) => void>();
+    const renderer = { renderRuntimeChanges };
+    const pipeline = new RuntimeVisualIntegrationPipeline({
+      document: document(),
+      store,
+      renderer,
+      schedulingMode: "immediate",
+      renderScheduler,
+      alarm: new RuntimeAlarmIntegrationStage({
+        resolveInputs: (snapshot) => [
+          {
+            alarmId: "pump.high",
+            symbolId: "pump",
+            sourceId: "pump.fill",
+            sourceKind: "threshold",
+            category: "process",
+            severity: "critical",
+            timestamp: snapshot.timestamp,
+            status: "Active",
+            message: "Pump high",
+            code: "HIGH",
+            origin: "binding",
+            reason: "condition-active"
+          }
+        ]
+      })
+    });
+    pipeline.start();
+    renderScheduler.flush();
+    const snapshot = renderer.renderRuntimeChanges.mock.calls[0]?.[0];
+    expect(snapshot?.nodes.get("pump")?.alarmState?.effectiveSeverity).toBe("critical");
+    expect(snapshot?.nodes.get("pump")?.alarmState?.effectiveStatus).toBe("Active");
+    pipeline.dispose();
   });
 });
