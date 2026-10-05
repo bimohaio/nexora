@@ -220,6 +220,30 @@ test("Phase 10.03 showcase exposes production animation controls and representat
   await expect(page.locator("#animation-status")).toContainText("PLAYING");
 });
 
+test("Phase 10 pauses animation work while the document is hidden and resumes when visible", async ({
+  page
+}) => {
+  await page.goto("/");
+  const motion = page
+    .locator('[data-node-id="node_animation_fan"] [data-scada-part="motion"]')
+    .first();
+  await expect(motion).toHaveAttribute("transform", /rotate/);
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  const hiddenTransform = await motion.getAttribute("transform");
+  await page.waitForTimeout(250);
+  await expect(motion).toHaveAttribute("transform", hiddenTransform ?? "");
+
+  await page.evaluate(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect.poll(async () => motion.getAttribute("transform")).not.toBe(hiddenTransform);
+});
+
 test("Phase 10.06 showcase projects alarm states, themes, and reduced motion", async ({ page }) => {
   await page.goto("/");
   const output = page.locator("#alarm-demo-output");

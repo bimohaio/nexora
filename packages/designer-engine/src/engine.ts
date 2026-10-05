@@ -3,6 +3,7 @@ import {
   UlidEntityIdGenerator,
   type Clock,
   type Command,
+  type DocumentChangeSet,
   type DomainEvent,
   type EntityIdGenerator,
   type ScadaConnection,
@@ -26,6 +27,7 @@ import {
   type Viewport
 } from "@web-scada/geometry";
 import type { SymbolRegistry } from "@web-scada/symbols";
+import type { HistoryOptions, HistoryTransactionOptions } from "@web-scada/history-engine";
 import { deriveDocumentChangeSet } from "./change-set.js";
 import {
   DeleteEntitiesCommand,
@@ -103,6 +105,8 @@ export interface CreateDesignerEngineOptions {
   readonly idGenerator?: EntityIdGenerator;
   readonly clock?: Clock;
   readonly options?: Partial<DesignerOptions>;
+  /** Transient History Engine retention/compression configuration. */
+  readonly history?: Omit<HistoryOptions, "deriveChanges">;
 }
 
 function selectionMode(additive: boolean, toggle: boolean): SelectionMode {
@@ -168,7 +172,7 @@ export class NativeDesignerEngine implements DesignerController {
   readonly #ids: EntityIdGenerator;
   readonly #clock: Clock;
   readonly #commandDependencies: DesignerCommandDependencies;
-  readonly #history = new CommandHistory();
+  readonly #history: CommandHistory;
   readonly #stateListeners = new Set<DesignerStateListener>();
   readonly #domainListeners = new Set<(event: DomainEvent) => void>();
   readonly #options: DesignerOptions;
@@ -183,6 +187,10 @@ export class NativeDesignerEngine implements DesignerController {
 
   public constructor(options: CreateDesignerEngineOptions) {
     this.#document = options.document;
+    this.#history = new CommandHistory({
+      ...options.history,
+      deriveChanges: deriveDocumentChangeSet
+    });
     this.#symbols = options.symbols;
     this.#renderer = options.renderer;
     this.#clipboard = options.clipboard ?? new MemoryClipboardAdapter();
@@ -230,20 +238,40 @@ export class NativeDesignerEngine implements DesignerController {
     this.#commitDocument(previous, next);
   }
 
+  public executeTransaction(
+    commands: readonly Command[],
+    options: HistoryTransactionOptions = {}
+  ): void {
+    this.#assertUsable();
+    const previous = this.#document;
+    const transaction = this.#history.beginTransaction(options);
+    let next = previous;
+    try {
+      for (const command of commands) next = this.#history.execute(command, next);
+      transaction.commit();
+    } catch (error) {
+      if (transaction.state === "active") transaction.cancel();
+      throw error;
+    }
+    this.#commitDocument(previous, next);
+  }
+
   public undo(): void {
     const previous = this.#document;
-    this.#commitDocument(previous, this.#history.undo(previous));
+    const result = this.#history.executeUndo(previous);
+    this.#commitDocument(previous, result.document, result.changes);
   }
 
   public redo(): void {
     const previous = this.#document;
-    this.#commitDocument(previous, this.#history.redo(previous));
+    const result = this.#history.executeRedo(previous);
+    this.#commitDocument(previous, result.document, result.changes);
   }
 
   public setSelection(selection: SelectionState): void {
     const nodeIds = new Set(this.#document.nodes.map(({ id }) => id));
     const connectionIds = new Set(this.#document.connections.map(({ id }) => id));
-    this.#selection = {
+    const nextSelection = {
       selectedNodeIds: [
         ...new Set(selection.selectedNodeIds.filter((id) => nodeIds.has(id)))
       ].sort(),
@@ -251,6 +279,17 @@ export class NativeDesignerEngine implements DesignerController {
         ...new Set(selection.selectedConnectionIds.filter((id) => connectionIds.has(id)))
       ].sort()
     };
+    const changed =
+      nextSelection.selectedNodeIds.length !== this.#selection.selectedNodeIds.length ||
+      nextSelection.selectedConnectionIds.length !== this.#selection.selectedConnectionIds.length ||
+      nextSelection.selectedNodeIds.some(
+        (id, index) => id !== this.#selection.selectedNodeIds[index]
+      ) ||
+      nextSelection.selectedConnectionIds.some(
+        (id, index) => id !== this.#selection.selectedConnectionIds[index]
+      );
+    this.#selection = nextSelection;
+    if (changed) this.#history.createMergeBarrier();
     this.#emitState("selection-changed");
   }
 
@@ -791,6 +830,7 @@ export class NativeDesignerEngine implements DesignerController {
   }
 
   public setActiveTool(tool: DesignerToolId): void {
+    if (tool !== this.#activeTool) this.#history.createMergeBarrier();
     this.#activeTool = tool;
     this.#emitState("tool-changed");
   }
@@ -824,7 +864,7 @@ export class NativeDesignerEngine implements DesignerController {
     if (this.#disposed) return;
     this.#stateListeners.clear();
     this.#domainListeners.clear();
-    this.#history.clear();
+    this.#history.dispose();
     this.#disposed = true;
   }
 
@@ -832,10 +872,14 @@ export class NativeDesignerEngine implements DesignerController {
     return selectionMode(shift, ctrlOrMeta);
   }
 
-  #commitDocument(previous: ScadaDocument, next: ScadaDocument): void {
+  #commitDocument(
+    previous: ScadaDocument,
+    next: ScadaDocument,
+    suppliedChanges?: DocumentChangeSet
+  ): void {
     if (next === previous) return;
     this.#document = next;
-    const changes = deriveDocumentChangeSet(previous, next);
+    const changes = suppliedChanges ?? deriveDocumentChangeSet(previous, next);
     this.#renderer?.renderChanges(next, changes);
     this.setSelection(this.#selection);
     const event: DomainEvent = {

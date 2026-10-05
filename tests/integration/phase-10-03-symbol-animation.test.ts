@@ -67,7 +67,9 @@ const documentFixture = (): ScadaDocument => ({
 });
 
 describe("Phase 10.03 runtime to SVG integration", () => {
-  beforeEach(() => { document.body.replaceChildren(); });
+  beforeEach(() => {
+    document.body.replaceChildren();
+  });
 
   it("updates a stable SVG element incrementally and restores its base transform", () => {
     const root = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -83,7 +85,9 @@ describe("Phase 10.03 runtime to SVG integration", () => {
       symbols,
       timeSource: clock,
       frameDriver,
-      onSamples: (id, samples) => { adapter.applySamples(id, samples); }
+      onSamples: (id, samples) => {
+        adapter.applySamples(id, samples);
+      }
     });
     runtime.loadDocument(documentFixture());
     runtime.play("motor", "motion");

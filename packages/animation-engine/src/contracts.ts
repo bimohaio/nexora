@@ -52,20 +52,9 @@ export type AnimationDirection = "normal" | "reverse" | "alternate" | "alternate
 export type AnimationFillMode = "none" | "forwards" | "backwards" | "both";
 export type AnimationRepeatMode = "once" | "count" | "infinite";
 export type AnimationPriority =
-  | "decorative"
-  | "designer-preview"
-  | "runtime"
-  | "alarm"
-  | "critical-alarm"
-  | "accessibility";
+  "decorative" | "designer-preview" | "runtime" | "alarm" | "critical-alarm" | "accessibility";
 export type BuiltinAnimationEasing =
-  | "linear"
-  | "ease"
-  | "ease-in"
-  | "ease-out"
-  | "ease-in-out"
-  | "step-start"
-  | "step-end";
+  "linear" | "ease" | "ease-in" | "ease-out" | "ease-in-out" | "step-start" | "step-end";
 export interface CubicBezierEasing {
   readonly kind: "cubic-bezier";
   readonly x1: number;
@@ -93,16 +82,9 @@ export type ReducedMotionPolicy =
   | { readonly mode: "replace-with-static-state" }
   | { readonly mode: "reduce-rate"; readonly factor: number };
 export type VisibilityState =
-  | "visible"
-  | "partially-visible"
-  | "offscreen"
-  | "document-hidden"
-  | "unmounted";
+  "visible" | "partially-visible" | "offscreen" | "document-hidden" | "unmounted";
 export type VisibilityPolicy =
-  | "always-run"
-  | "pause-offscreen"
-  | "throttle-offscreen"
-  | "pause-when-document-hidden";
+  "always-run" | "pause-offscreen" | "throttle-offscreen" | "pause-when-document-hidden";
 
 export interface AnimationDefinition {
   readonly id: AnimationDefinitionId;
@@ -188,13 +170,7 @@ export interface AnimationVisualState {
   readonly custom?: Readonly<Record<string, unknown>>;
 }
 export type VisualStatePriority =
-  | "design"
-  | "runtime"
-  | "binding"
-  | "animation"
-  | "alarm"
-  | "interaction"
-  | "accessibility";
+  "design" | "runtime" | "binding" | "animation" | "alarm" | "interaction" | "accessibility";
 
 export interface MotionPreferenceSource {
   getCurrent(): MotionPreference;

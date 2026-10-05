@@ -19,6 +19,7 @@ import {
   type SymbolRegistry as CoreSymbolRegistry
 } from "@web-scada/core";
 import type { Point } from "@web-scada/geometry";
+import type { HistoryMergeableCommand, HistoryMergeMetadata } from "@web-scada/history-engine";
 import type { NodeOrderOperation } from "./contracts.js";
 
 export interface DesignerCommandDependencies {
@@ -61,7 +62,7 @@ export class SnapshotCommand implements Command {
     return { document: this.#after ?? this.operation(context.document) };
   }
 
-  public canMergeWith(): boolean {
+  public canMergeWith(_command: Command): boolean {
     return false;
   }
 }
@@ -113,12 +114,16 @@ export class InsertNodeCommand extends SnapshotCommand {
   }
 }
 
-export class MoveNodesCommand extends SnapshotCommand {
+export class MoveNodesCommand extends SnapshotCommand implements HistoryMergeableCommand {
+  public readonly historyMerge: HistoryMergeMetadata;
+  readonly #nodeIds: readonly string[];
+
   public constructor(
     nodeIds: readonly string[],
     delta: Point,
     dependencies: DesignerCommandDependencies = {}
   ) {
+    const targets = Object.freeze([...new Set(nodeIds)].sort());
     super(
       "move-node",
       (document) => {
@@ -144,10 +149,37 @@ export class MoveNodesCommand extends SnapshotCommand {
       },
       dependencies
     );
+    this.#nodeIds = targets;
+    this.historyMerge = Object.freeze({
+      key: `move:nodes:${targets.join(",")}`,
+      commandKind: "move-node",
+      targetIds: targets,
+      policy: "compatible-neighbor"
+    });
+  }
+
+  public override canMergeWith(command: Command): boolean {
+    return (
+      command instanceof MoveNodesCommand &&
+      this.#nodeIds.length === command.#nodeIds.length &&
+      this.#nodeIds.every((id, index) => id === command.#nodeIds[index])
+    );
+  }
+
+  public isHistoryNoOp(before: Readonly<ScadaDocument>, after: Readonly<ScadaDocument>): boolean {
+    return this.#nodeIds.every((id) => {
+      const previous = before.nodes.find((node) => node.id === id)?.transform;
+      const next = after.nodes.find((node) => node.id === id)?.transform;
+      if (previous === undefined || next === undefined) return false;
+      return previous.x === next.x && previous.y === next.y;
+    });
   }
 }
 
-export class ResizeNodeCommand extends SnapshotCommand {
+export class ResizeNodeCommand extends SnapshotCommand implements HistoryMergeableCommand {
+  public readonly historyMerge: HistoryMergeMetadata;
+  readonly #nodeId: string;
+
   public constructor(
     nodeId: string,
     transform: ScadaNode["transform"],
@@ -166,6 +198,32 @@ export class ResizeNodeCommand extends SnapshotCommand {
           )
         ),
       dependencies
+    );
+    this.#nodeId = nodeId;
+    this.historyMerge = Object.freeze({
+      key: `resize:node:${nodeId}`,
+      commandKind: "resize-node",
+      targetIds: Object.freeze([nodeId]),
+      policy: "compatible-neighbor"
+    });
+  }
+
+  public override canMergeWith(command: Command): boolean {
+    return command instanceof ResizeNodeCommand && this.#nodeId === command.#nodeId;
+  }
+
+  public isHistoryNoOp(before: Readonly<ScadaDocument>, after: Readonly<ScadaDocument>): boolean {
+    const previous = before.nodes.find((node) => node.id === this.#nodeId)?.transform;
+    const next = after.nodes.find((node) => node.id === this.#nodeId)?.transform;
+    if (previous === undefined || next === undefined) return false;
+    return (
+      previous.x === next.x &&
+      previous.y === next.y &&
+      previous.width === next.width &&
+      previous.height === next.height &&
+      previous.rotation === next.rotation &&
+      previous.scaleX === next.scaleX &&
+      previous.scaleY === next.scaleY
     );
   }
 }

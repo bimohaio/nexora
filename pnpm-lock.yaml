@@ -223,6 +223,9 @@ importers:
       '@web-scada/geometry':
         specifier: workspace:*
         version: link:../geometry
+      '@web-scada/history-engine':
+        specifier: workspace:*
+        version: link:../history-engine
       '@web-scada/interaction-engine':
         specifier: workspace:*
         version: link:../interaction-engine
@@ -234,6 +237,12 @@ importers:
         version: link:../symbols
 
   packages/geometry: {}
+
+  packages/history-engine:
+    dependencies:
+      '@web-scada/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/interaction-engine:
     dependencies:

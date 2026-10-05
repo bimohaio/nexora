@@ -6,21 +6,9 @@ import {
 import { clampProgress } from "./interpolation.js";
 
 export type CompositeType =
-  | "parallel"
-  | "sequence"
-  | "stagger"
-  | "delay-group"
-  | "race"
-  | "barrier"
-  | "conditional";
+  "parallel" | "sequence" | "stagger" | "delay-group" | "race" | "barrier" | "conditional";
 export type CompositeState =
-  | "created"
-  | "running"
-  | "paused"
-  | "completed"
-  | "cancelled"
-  | "disposed"
-  | "failed";
+  "created" | "running" | "paused" | "completed" | "cancelled" | "disposed" | "failed";
 export type CompositeDirection = "normal" | "reverse" | "alternate" | "alternate-reverse";
 export type CompositeRepeat =
   | { readonly kind: "once" }

@@ -21,6 +21,10 @@ export default defineConfig({
         import.meta.url
       ).pathname,
       "@web-scada/geometry": new URL("./packages/geometry/src/index.ts", import.meta.url).pathname,
+      "@web-scada/history-engine": new URL(
+        "./packages/history-engine/src/index.ts",
+        import.meta.url
+      ).pathname,
       "@web-scada/interaction-engine": new URL(
         "./packages/interaction-engine/src/index.ts",
         import.meta.url

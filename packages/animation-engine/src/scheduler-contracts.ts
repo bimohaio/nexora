@@ -37,12 +37,7 @@ export interface AnimationFrameContext {
 
 export type AnimationFrameStatus = "continue" | "complete" | "pause" | "sleep";
 export type AnimationInvalidationTarget =
-  | "symbol"
-  | "node"
-  | "connection"
-  | "overlay"
-  | "alarm-visual"
-  | "animation-target";
+  "symbol" | "node" | "connection" | "overlay" | "alarm-visual" | "animation-target";
 
 /** A target identifier only; renderer-private objects are intentionally excluded. */
 export interface AnimationInvalidation {

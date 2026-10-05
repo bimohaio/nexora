@@ -79,13 +79,7 @@ export interface AcknowledgeAlarmCommand {
 
 export type AlarmVisualEmphasis = "none" | "subtle" | "moderate" | "strong" | "critical";
 export type AlarmOverlayKind =
-  | "none"
-  | "badge"
-  | "border"
-  | "corner-indicator"
-  | "icon"
-  | "label"
-  | "pattern";
+  "none" | "badge" | "border" | "corner-indicator" | "icon" | "label" | "pattern";
 export type AlarmIndicatorKind = "none" | "icon" | "badge" | "label" | "pattern";
 export type AlarmAcknowledgedStyle = "preserve" | "deemphasize" | "static";
 export interface AlarmAnimationReference {

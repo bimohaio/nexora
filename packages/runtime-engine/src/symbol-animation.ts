@@ -218,15 +218,15 @@ export class SymbolAnimationController {
     this.#assertUsable();
     this.stop(slotId);
     const slot = this.definition.animation?.slots.find(({ id }) => id === slotId);
-    if (slot === undefined)
-      { this.#diagnose("ANIMATION_SLOT_NOT_FOUND", `Unknown slot '${slotId}'.`, slotId); return; }
+    if (slot === undefined) {
+      this.#diagnose("ANIMATION_SLOT_NOT_FOUND", `Unknown slot '${slotId}'.`, slotId);
+      return;
+    }
     const target = this.definition.animation?.targets.find(({ id }) => id === slot.target);
-    if (target === undefined)
-      { this.#diagnose(
-        "ANIMATION_TARGET_NOT_FOUND",
-        `Unknown target '${slot.target}'.`,
-        slotId
-      ); return; }
+    if (target === undefined) {
+      this.#diagnose("ANIMATION_TARGET_NOT_FOUND", `Unknown target '${slot.target}'.`, slotId);
+      return;
+    }
     try {
       const instance = this.factory.create({ entityId: this.entityId, slot, ...overrides });
       const instanceId = instance.id as unknown as AnimationInstanceId;
@@ -393,7 +393,7 @@ export class RuntimeAnimationManager {
   #disposed = false;
 
   public constructor(private readonly options: RuntimeAnimationManagerOptions) {
-    this.#clock = (options.timeSource ?? new SystemAnimationClock());
+    this.#clock = options.timeSource ?? new SystemAnimationClock();
     this.#factory = new SymbolAnimationInstanceFactory(this.#clock);
     this.#scheduler = new SharedAnimationScheduler({
       id: "runtime-symbol-animations",
@@ -452,7 +452,9 @@ export class RuntimeAnimationManager {
           this.#scheduler,
           this.#factory,
           this.#store,
-          (entry) => { this.#report(entry); }
+          (entry) => {
+            this.#report(entry);
+          }
         )
       );
     }

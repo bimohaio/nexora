@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   DesignerToolController,
   InMemoryToolRegistry,
+  MoveNodesCommand,
   SelectTool,
   createDesignerEngine,
   handleDesignerShortcut,
@@ -66,6 +67,21 @@ const pointer = (x: number, y: number, nodeId?: string): DesignerPointerEvent =>
 });
 
 describe("NativeDesignerEngine", () => {
+  it("honors configured history retention at the Designer boundary", () => {
+    const designer = createDesignerEngine({
+      document: document(),
+      symbols: createIndustrialSymbolRegistry(),
+      history: { maxEntries: 1 }
+    });
+    designer.selectNode("node_a");
+    designer.moveSelection({ x: 10, y: 0 });
+    designer.resizeNode("node_a", "se", { x: 10, y: 0 });
+    designer.undo();
+    expect(designer.getState().document.nodes[0]?.transform).toMatchObject({ x: 20, width: 100 });
+    designer.undo();
+    expect(designer.getState().document.nodes[0]?.transform).toMatchObject({ x: 20, width: 100 });
+  });
+
   it("supports deterministic selection, marquee, snapped moves, resize, undo, and redo", () => {
     const renderChanges = vi.fn();
     const designer = createDesignerEngine({
@@ -93,9 +109,16 @@ describe("NativeDesignerEngine", () => {
     });
     designer.undo();
     expect(designer.getState().document.nodes[0]?.transform.width).toBe(100);
+    expect(renderChanges).toHaveBeenLastCalledWith(
+      designer.getState().document,
+      expect.objectContaining({ updatedNodeIds: ["node_a"] })
+    );
     designer.redo();
     expect(designer.getState().document.nodes[0]?.transform.width).toBe(33);
-    expect(renderChanges).toHaveBeenCalled();
+    expect(renderChanges).toHaveBeenLastCalledWith(
+      designer.getState().document,
+      expect.objectContaining({ updatedNodeIds: ["node_a"] })
+    );
   });
 
   it("copies, pastes, duplicates, cuts, and gives pasted nodes fresh IDs", async () => {
@@ -114,6 +137,98 @@ describe("NativeDesignerEngine", () => {
     expect(designer.getState().document.nodes).toHaveLength(3);
     designer.undo();
     expect(designer.getState().document.nodes).toHaveLength(4);
+  });
+
+  it("commits multiple real commands as one atomic history operation", () => {
+    const renderChanges = vi.fn();
+    const designer = createDesignerEngine({
+      document: document(),
+      symbols: createIndustrialSymbolRegistry(),
+      renderer: { renderDocument: vi.fn(), renderChanges, setViewport: vi.fn() }
+    });
+    designer.executeTransaction(
+      [
+        new MoveNodesCommand(["node_a"], { x: 10, y: 0 }),
+        new MoveNodesCommand(["node_b"], { x: 0, y: 20 })
+      ],
+      { label: "Move two nodes" }
+    );
+    expect(designer.getState().document.nodes.map(({ transform }) => transform)).toMatchObject([
+      { x: 20, y: 10 },
+      { x: 250, y: 40 }
+    ]);
+    expect(renderChanges).toHaveBeenCalledTimes(1);
+
+    designer.undo();
+    expect(designer.getState().document.nodes.map(({ transform }) => transform)).toMatchObject([
+      { x: 10, y: 10 },
+      { x: 250, y: 20 }
+    ]);
+    expect(designer.getRuntimeState()).toMatchObject({ canUndo: false, canRedo: true });
+
+    designer.redo();
+    expect(designer.getState().document.nodes.map(({ transform }) => transform)).toMatchObject([
+      { x: 20, y: 10 },
+      { x: 250, y: 40 }
+    ]);
+  });
+
+  it("merges repeated moves and resizes while preserving logical undo and redo", () => {
+    const designer = createDesignerEngine({
+      document: document(),
+      symbols: createIndustrialSymbolRegistry()
+    });
+    designer.selectNode("node_a");
+    designer.nudgeSelection({ x: 1, y: 0 });
+    designer.nudgeSelection({ x: 2, y: 0 });
+    designer.nudgeSelection({ x: 3, y: 0 });
+    expect(designer.getState().document.nodes[0]?.transform.x).toBe(16);
+    designer.undo();
+    expect(designer.getState().document.nodes[0]?.transform.x).toBe(10);
+    expect(designer.getRuntimeState()).toMatchObject({ canUndo: false, canRedo: true });
+    designer.redo();
+    expect(designer.getState().document.nodes[0]?.transform.x).toBe(16);
+
+    designer.resizeNode("node_a", "se", { x: 10, y: 10 });
+    designer.resizeNode("node_a", "se", { x: 20, y: 20 });
+    expect(designer.getState().document.nodes[0]?.transform.width).toBe(130);
+    designer.undo();
+    expect(designer.getState().document.nodes[0]?.transform.width).toBe(100);
+    designer.redo();
+    expect(designer.getState().document.nodes[0]?.transform.width).toBe(130);
+  });
+
+  it("does not merge movement when the selected target set changes", () => {
+    const designer = createDesignerEngine({
+      document: document(),
+      symbols: createIndustrialSymbolRegistry()
+    });
+    designer.selectNode("node_a");
+    designer.nudgeSelection({ x: 1, y: 0 });
+    designer.selectNode("node_b");
+    designer.nudgeSelection({ x: 1, y: 0 });
+    designer.undo();
+    expect(designer.getState().document.nodes[1]?.transform.x).toBe(250);
+    expect(designer.getState().document.nodes[0]?.transform.x).toBe(11);
+    designer.undo();
+    expect(designer.getState().document.nodes[0]?.transform.x).toBe(10);
+  });
+
+  it("merges movement only while an identical multi-selection remains adjacent", () => {
+    const designer = createDesignerEngine({
+      document: document(),
+      symbols: createIndustrialSymbolRegistry()
+    });
+    designer.selectNode("node_a");
+    designer.selectNode("node_b", "add");
+    designer.nudgeSelection({ x: 1, y: 1 });
+    designer.nudgeSelection({ x: 2, y: 2 });
+    designer.undo();
+    expect(designer.getState().document.nodes.map(({ transform }) => transform)).toMatchObject([
+      { x: 10, y: 10 },
+      { x: 250, y: 20 }
+    ]);
+    expect(designer.getRuntimeState().canUndo).toBe(false);
   });
 
   it("updates viewport and centers a selection", () => {

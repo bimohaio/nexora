@@ -8,6 +8,7 @@ import type {
   PropertyBinding
 } from "@web-scada/core";
 import type { Alignment, Point, Rectangle, Viewport } from "@web-scada/geometry";
+import type { HistoryTransactionOptions } from "@web-scada/history-engine";
 
 export interface SelectionState {
   readonly selectedNodeIds: readonly string[];
@@ -144,6 +145,7 @@ export type DesignerStateListener = (event: DesignerStateEvent) => void;
 export interface DesignerEngine {
   getState(): DesignerState;
   execute(command: Command): void;
+  executeTransaction(commands: readonly Command[], options?: HistoryTransactionOptions): void;
   setSelection(selection: SelectionState): void;
   setViewport(viewport: Viewport): void;
   toCanvasPoint(screenPoint: Point): Point;

@@ -16,8 +16,24 @@ policy.
 
 ## Public APIs
 
-TODO: no accepted history API exists. SCADA Core `Command` and immutable mutation
-results are prerequisites, not a complete history contract.
+Phase 11.00 establishes `@web-scada/history-engine`: `HistoryEngine`, immutable
+entry/state/options contracts, transaction and merge foundations, JSON-safe
+restoration metadata, typed errors, and framework-neutral subscriptions. The
+existing Designer `CommandHistory` name remains as a compatibility adapter.
+
+History is transient editor state and is not persisted with `ScadaDocument`.
+Phase 11.03 adds explicit semantic command merging, transaction-tail compression,
+merge barriers, proven no-op removal, failure diagnostics, and move/resize Designer
+integration. Clipboard formats and selection restoration behavior remain later Phase 11 work.
+
+Phase 11.04 adds bounded-by-default logical undo retention, oldest-first atomic pruning, optional
+deterministic estimated-cost budgets, incremental retention statistics, redo-reference cleanup, and
+lifecycle accounting. Designer construction accepts transient `history` options; no history data is
+added to `ScadaDocument`.
+
+See also [command merging architecture](../architecture/history-command-merging.md),
+[ADR 0026](../adr/0026-command-merging-and-history-compression.md), and
+[ADR 0027](../adr/0027-history-retention-and-memory-budget.md).
 
 ## Dependencies
 

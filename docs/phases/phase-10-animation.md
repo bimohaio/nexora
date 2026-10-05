@@ -1,10 +1,11 @@
 # Phase 10 — Animation
 
-Phase 10.03 is implemented. Symbol registry metadata now flows through runtime controllers,
-Phase 10.02 primitives, the Phase 10.01 shared scheduler, transient composition and incremental SVG
-rendering. Designer preview uses the same runtime path. See the
-[symbol integration guide](../animation/symbol-integration.md) and
-[Phase 10.03 audit](../roadmap/phase-10-03-symbol-animation-integration-audit.md).
+Phase 10 is implemented through Phase 10.10. Symbol metadata flows through runtime controllers,
+core primitives, one shared scheduler, transient alarm/animation composition and incremental SVG
+rendering. Designer preview and the browser demo use the same production runtime path. See the
+[symbol integration guide](../animation/symbol-integration.md), the
+[runtime visual pipeline](../runtime/phase-10-09-visual-pipeline.md), and the
+[final audit](../audits/phase-10-final-audit.md).
 
 ## Goal
 
@@ -22,8 +23,10 @@ and performance diagnostics.
 
 ## Public APIs
 
-TODO: no animation API exists. Contracts must operate on resolved visual state and
-must not enter generic symbol metadata without an accepted ADR.
+`@web-scada/animation-engine`, `@web-scada/alarm-visualization`, and the additive Runtime,
+Binding, Designer, Symbols, and SVG adapter exports are the accepted Phase 10 APIs. Generic
+contracts remain renderer-neutral and operate on resolved visual state. Persisted document
+compatibility is unchanged.
 
 ## Dependencies
 
@@ -43,6 +46,13 @@ rebuild unrelated SVG entities.
 ## Exit Criteria
 
 Lifecycle, performance, reduced-motion, and browser conformance suites pass.
+
+## Deferred boundaries
+
+- Alarm shelving state and presentation are supported. Automatic expiration and operator workflow
+  require a future product workflow; Phase 10 does not introduce a timer.
+- SVG/image export belongs to Phase 12. Phase 10 does not create a visual-export API ahead of its
+  format and security decisions.
 
 See also:
 

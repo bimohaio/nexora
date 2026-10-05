@@ -20,13 +20,7 @@ export type PrimitiveRepeatMode =
   | { readonly kind: "until-cancelled" };
 
 export type PrimitiveInterpolationId =
-  | "linear"
-  | "ease-in"
-  | "ease-out"
-  | "ease-in-out"
-  | "step"
-  | "discrete"
-  | (string & {});
+  "linear" | "ease-in" | "ease-out" | "ease-in-out" | "step" | "discrete" | (string & {});
 
 export interface PrimitiveTiming {
   readonly durationMs: number;

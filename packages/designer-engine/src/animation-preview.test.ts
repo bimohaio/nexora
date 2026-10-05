@@ -62,9 +62,15 @@ describe("DesignerAnimationPreviewController", () => {
       symbols,
       frameDriver: new ManualAnimationFrameDriver()
     });
-    expect(() => { preview.seek("node_0", "level", 2); }).toThrow(RangeError);
-    expect(() => { preview.setSpeedOverride(-1); }).toThrow(RangeError);
+    expect(() => {
+      preview.seek("node_0", "level", 2);
+    }).toThrow(RangeError);
+    expect(() => {
+      preview.setSpeedOverride(-1);
+    }).toThrow(RangeError);
     preview.dispose();
-    expect(() => { preview.play("node_0", "level"); }).toThrow(/disposed/);
+    expect(() => {
+      preview.play("node_0", "level");
+    }).toThrow(/disposed/);
   });
 });
